@@ -1,7 +1,3 @@
-Let's build this as GitHub-ready Markdown notes, starting with the concept of Fault Tolerance and then focusing only on Retry in Polly v8.
-
-We'll use your Order Microservice as the practical example:
-
 - Order Service calls User Service to validate a user.
 - If User Service temporarily fails, Order Service retries the request.
 - We'll create a `Policies` folder containing `IUserServicePolicies` and `UserServicePolicies`.
