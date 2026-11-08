@@ -26,6 +26,7 @@ Our Order Microservice calls User Microservice to retrieve user details.
 3. Order Service waits for a configured delay.
 4. Order Service retries the request.
 5. If the request succeeds, processing continues.
+<img width="800" height="500" alt="image" src="https://github.com/user-attachments/assets/6efd43be-6aaa-4f91-a0df-846ff1ad951c" />
 
 ### When should we use Retry?
 
@@ -39,7 +40,6 @@ Retry is useful for temporary failures, such as:
 - HTTP 504 – Gateway Timeout.
 
 We should generally avoid retrying permanent failures such as HTTP 400, 401 and 404.
-<img width="1268" height="690" alt="image" src="https://github.com/user-attachments/assets/7574b542-8dee-4779-9382-d72630cd2e17" />
 
 ---
 
@@ -71,9 +71,9 @@ For Retry, Polly v8 provides:
 | Property | Description |
 |---|---|
 | `MaxRetryAttempts` | Maximum number of retries after the original request. |
-| `Delay` | Initial delay between retries. |
-| `BackoffType` | Determines how retry delays increase. |
-| `UseJitter` | Adds random variation to retry delays. |
+| `Delay` | Initial/base delay used to calculate retry delays. |
+| `BackoffType` | Determines how retry delays are calculated. |
+| `UseJitter` | Adds randomness to retry delays. |
 | `ShouldHandle` | Defines which failures should trigger retries. |
 
 ### A. MaxRetryAttempts
@@ -92,7 +92,7 @@ Maximum executions = 4.
 Delay = TimeSpan.FromSeconds(2)
 ```
 
-Defines the initial delay before retrying.
+Defines the initial/base delay used by the Retry strategy.
 
 ### C. BackoffType
 
@@ -116,6 +116,8 @@ Defines how the delay changes between retries.
 2s → 4s → 8s
 ```
 
+These are illustrative delays without jitter.
+
 ### D. UseJitter
 
 ```csharp
@@ -124,9 +126,59 @@ UseJitter = true
 
 Jitter introduces randomness into retry delays.
 
-It helps prevent multiple service instances from retrying at exactly the same time.
+**Why do we need Jitter?**
+
+Consider a scenario where 1,000 Order Service instances are communicating with User Service.
+
+Suppose User Service suddenly becomes unavailable.
+
+Without Jitter:
+
+- All instances fail.
+- All instances wait for approximately the same duration.
+- All instances retry at approximately the same time.
+- User Service receives another large burst of requests.
+
+This can create additional load on an already struggling service.
+
+With Jitter:
+
+- Each request gets a randomized retry delay.
+- Retry requests become distributed over time.
+- All instances are less likely to retry simultaneously.
 
 This helps reduce the **Thundering Herd Problem**.
+
+**Practical Jitter Example:**
+
+Consider Polly v8 with:
+
+```csharp
+Delay = TimeSpan.FromSeconds(1),
+BackoffType = DelayBackoffType.Exponential,
+UseJitter = true
+```
+
+For comparison, here are example delay sequences documented by Polly:
+
+| Retry | Without Jitter | With Jitter (example) |
+|---|---:|---:|
+| Retry 1 | 1,000 ms | 393 ms |
+| Retry 2 | 2,000 ms | 1,453 ms |
+| Retry 3 | 4,000 ms | 4,235 ms |
+| Retry 4 | 8,000 ms | 5,369 ms |
+| Retry 5 | 16,000 ms | 16,849 ms |
+
+**Important:**
+
+- These are illustrative sample values, not guaranteed delays.
+- Without Jitter, exponential backoff follows a predictable progression.
+- With Jitter, Polly v8 uses Decorrelated Jitter Backoff V2 for exponential backoff.
+- The actual delays can vary between executions and may not always increase.
+
+**Remember:**
+
+Exponential Backoff controls how retry delays progress, while Jitter helps distribute retry attempts over time.
 
 ---
 
@@ -205,12 +257,14 @@ namespace BusinessLogicLayer.Policies
 - `AddRetry()` adds the Retry strategy.
 - `RetryStrategyOptions<HttpResponseMessage>` configures Retry for HTTP responses.
 - `MaxRetryAttempts = 3` allows three retries.
-- `Delay = 2 seconds` sets the initial delay.
+- `Delay = 2 seconds` sets the initial/base delay.
 - `BackoffType.Exponential` increases the delay exponentially.
 - `UseJitter = true` randomizes retry delays.
 - `ShouldHandle` specifies which HTTP failures trigger retries.
 
 ### Step 4: Register in Program.cs
+
+Add the namespace:
 
 ```csharp
 using BusinessLogicLayer.Policies;
@@ -241,7 +295,7 @@ builder.Services.AddHttpClient<UserServiceClient>(client =>
     policies.ConfigureRetry(pipeline);
 });
 ```
-GetRequiredService ka matlab hai agar service registered nahi hai toh exception throw karo. Iske opposite GetService hai, jo registration missing hone par null return karta hai.
+
 **What happens here?**
 
 1. `AddHttpClient()` registers a typed HTTP client.
@@ -310,7 +364,52 @@ Both approaches use Polly v8. Choose one approach for a given HTTP client rather
 
 ---
 
-## 7. How Does the HTTP Request Pipeline Work?
+# 7. Retry Policy – Execution Flow Diagram
+
+The following diagram explains how Polly decides whether to retry an HTTP request.
+
+```mermaid
+flowchart TD
+    A["Order Service sends HTTP request"] --> B["Polly Retry Handler"]
+    B --> C["User Microservice processes request"]
+    C --> D{"Request successful?"}
+
+    D -->|Yes| E["Return successful response"]
+    D -->|No| F{"Does failure match ShouldHandle?"}
+
+    F -->|No| G["Return unsuccessful response"]
+    F -->|Yes| H{"Retries remaining?"}
+
+    H -->|No| I["Return final failure"]
+    H -->|Yes| J["Calculate retry delay"]
+    J --> K["Apply Backoff and Jitter"]
+    K --> L["Wait for calculated delay"]
+    L --> B
+
+    E --> M["Order Service continues processing"]
+    G --> N["Order Service handles failure"]
+    I --> N
+```
+
+### Understanding the diagram
+
+1. Order Service sends an HTTP request.
+2. Polly intercepts the outgoing request through the resilience handler.
+3. User Microservice processes the request.
+4. Polly evaluates the response.
+5. If the response is successful, it returns immediately.
+6. If unsuccessful, Polly checks the `ShouldHandle` condition.
+7. If the failure is not retryable, it returns the response without retrying.
+8. If the failure is retryable, Polly checks the remaining retry attempts.
+9. If retries remain, Polly calculates the delay using Backoff and Jitter.
+10. Polly waits and executes the request again.
+11. If all retries are exhausted, the final failure is returned to Order Service.
+
+---
+
+# 8. How Does the HTTP Request Pipeline Work?
+
+Our architecture:
 
 ```text
 Client
@@ -346,7 +445,10 @@ Temporary Failure
 Polly checks ShouldHandle
      |
      v
-Wait according to Backoff
+Calculate Backoff + Jitter
+     |
+     v
+Wait
      |
      v
 Retry Request
@@ -357,7 +459,7 @@ Success or Final Failure
 
 ---
 
-## 8. Important Production Considerations
+# 9. Important Production Considerations
 
 1. **Selective Retry:** Retry only transient failures, not every HTTP error.
 2. **Timeout:** Configure appropriate request timeouts.
@@ -369,7 +471,7 @@ Note: HTTP GET requests are generally safe to retry. Be careful when retrying PO
 
 ---
 
-## 9. Interview Questions
+# 10. Interview Questions
 
 **Q1. What is the Retry Pattern?**
 
@@ -381,7 +483,7 @@ Polly is a .NET resilience library used to handle transient failures using strat
 
 **Q3. What is Exponential Backoff?**
 
-It progressively increases the delay between retries, for example 2, 4 and 8 seconds.
+It progressively increases the delay between retries, for example 2, 4 and 8 seconds when jitter is disabled.
 
 **Q4. Why do we use Jitter?**
 
@@ -413,7 +515,7 @@ Because the original request might have succeeded even if its response was lost.
 
 ---
 
-## 10. Quick Revision
+# 11. Quick Revision
 
 - Fault Tolerance helps applications handle failures.
 - Retry automatically repeats an operation after a handled failure.
@@ -421,10 +523,16 @@ Because the original request might have succeeded even if its response was lost.
 - Polly v8 uses `ResiliencePipeline`.
 - `AddRetry()` adds the Retry strategy.
 - `MaxRetryAttempts` controls the number of retries.
-- `Delay` defines the initial delay.
+- `Delay` defines the base delay.
 - `BackoffType` determines how delays increase.
 - `UseJitter` randomizes retry delays.
 - `AddResilienceHandler()` integrates Polly with HttpClient.
 - `ShouldHandle` determines which failures trigger retries.
 
 **Key takeaway:** Retry improves the reliability of microservices communication by automatically recovering from temporary failures instead of immediately failing the operation.
+
+### Official References
+
+- [Polly v8 – Retry Strategy Documentation](https://www.pollydocs.org/strategies/retry)
+- [Polly – Retry Strategy Cheat Sheet](https://www.pollydocs.org/media/cheat-sheet-retry.pdf)
+- [Polly – Jitter and Backoff Explanation](https://github.com/Polly-Contrib/Polly.Contrib.WaitAndRetry)
