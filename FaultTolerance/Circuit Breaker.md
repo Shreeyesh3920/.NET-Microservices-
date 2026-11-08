@@ -1,104 +1,137 @@
 # Circuit Breaker Pattern in .NET Microservices (Polly v8)
 
-We already implemented the Retry pattern for communication between the Order Service and User Service. Now let's understand the Circuit Breaker pattern and integrate it into the same architecture.
-
-## 1. What is a Circuit Breaker?
+## 1. What is Circuit Breaker?
 
 The Circuit Breaker pattern prevents a microservice from repeatedly calling another microservice when that service is failing or unavailable.
 
-Imagine this scenario:
+Imagine this scenario in our e-commerce application:
 
-- Order Service calls User Service to validate a user.
-- User Service is down or continuously returning errors.
-- Without a Circuit Breaker, Order Service keeps sending requests.
-- These repeated requests waste resources and can make recovery harder.
+1. Order Service calls User Service to validate a user.
+2. User Service is down or continuously returning server errors.
+3. Order Service keeps sending requests to User Service.
+4. These repeated requests waste resources and can make recovery harder.
 
-The Circuit Breaker temporarily stops outgoing requests after detecting repeated failures. It gives the failing service time to recover.
+The Circuit Breaker pattern temporarily stops outgoing requests after detecting repeated failures. It gives the failing service time to recover.
 
-Think of it like an electrical circuit breaker: when it detects a problem, it cuts the connection to prevent further damage.
+**Think of it like an electrical circuit breaker:** when it detects a problem, it cuts the connection to prevent further damage.
+
+### Why do we need Circuit Breaker?
+
+- Prevents repeated calls to an unhealthy service.
+- Avoids wasting resources on requests that are likely to fail.
+- Helps prevent cascading failures between microservices.
+- Gives the failing service time to recover.
+- Allows the application to fail fast instead of waiting for repeated timeouts.
 
 ## 2. Three states of Circuit Breaker
 
-A Circuit Breaker has three states:
+Circuit Breaker has three main states:
 
-CLOSED
+### 1. Closed State
 
-Normal operation
+- This is the normal operating state.
+- Requests are allowed to pass through to the target service.
+- The Circuit Breaker monitors failures.
+- If the configured failure threshold is reached, it moves to the Open state.
 
-Requests are allowed to pass through to User Service. The breaker monitors failures.
+### 2. Open State
 
-OPEN
+- Requests are blocked immediately.
+- Requests are not forwarded to the target service.
+- Polly throws a `BrokenCircuitException`.
+- The circuit remains open for the configured `BreakDuration`.
 
-Requests are blocked
+### 3. Half-Open State
 
-Once the failure threshold is reached, the circuit opens. Requests fail immediately without calling User Service.
+- After the break duration expires, the circuit moves to Half-Open.
+- Polly allows a probe request to check whether the target service has recovered.
+- If the probe succeeds, the circuit moves to Closed.
+- If the probe fails, the circuit moves back to Open.
 
-HALF-OPEN
+### State transitions
 
-Testing recovery
+| Current State | Condition | Next State |
+|---|---|---|
+| Closed | Failure threshold reached | Open |
+| Open | Break duration expires | Half-Open |
+| Half-Open | Probe succeeds | Closed |
+| Half-Open | Probe fails | Open |
 
-After the break duration expires, a limited number of requests are allowed through to check whether User Service has recovered.
+## 3. Understanding Circuit Breaker configuration
 
-The transitions are:
+Polly v8 uses a sampling-based Circuit Breaker.
 
-- Closed → Open: The configured failure threshold is reached.
-- Open → Half-Open: The configured break duration expires.
-- Half-Open → Closed: The test request succeeds.
-- Half-Open → Open: The test request fails.
+Unlike a simple consecutive-failure counter, it evaluates the failure ratio over a configured time window.
 
-## 3. Understanding the configuration
+The following are the important properties:
 
-Polly v8 uses a sampling-based Circuit Breaker. It doesn't simply open after a fixed number of consecutive failures.
+| Property | Description |
+|---|---|
+| `FailureRatio` | Failure percentage required to open the circuit. |
+| `SamplingDuration` | Time window used to calculate the failure ratio. |
+| `MinimumThroughput` | Minimum number of executions required within the sampling window. |
+| `BreakDuration` | How long the circuit remains open before allowing a recovery probe. |
 
-These are the important properties:
+### Example configuration
 
-| Property            | Meaning                                                 |
-| ------------------- | ------------------------------------------------------- |
-| `FailureRatio`      | Failure percentage required to open the circuit         |
-| `SamplingDuration`  | Time window used to calculate failures                  |
-| `MinimumThroughput` | Minimum number of requests required in that time window |
-| `BreakDuration`     | How long the circuit stays open                         |
-
-For example, suppose we configure:
-
-```
+```csharp
 FailureRatio = 0.5,
 SamplingDuration = TimeSpan.FromSeconds(10),
 MinimumThroughput = 4,
 BreakDuration = TimeSpan.FromSeconds(30)
 ```
 
-This means:
+Let's understand this configuration:
 
-- Polly examines requests within a 10-second window.
-- At least 4 requests must pass through the circuit.
-- If 50% or more of those requests fail, the circuit opens.
-- It remains open for 30 seconds.
-- After 30 seconds, it allows a probe request to check whether User Service has recovered.
+- `FailureRatio = 0.5`: At least 50% of sampled executions must fail.
+- `SamplingDuration = 10 seconds`: Polly examines executions within a 10-second window.
+- `MinimumThroughput = 4`: At least four executions must occur in that window.
+- `BreakDuration = 30 seconds`: The circuit stays open for 30 seconds before allowing a recovery probe.
 
-Important: If only 3 requests fail within those 10 seconds, the circuit will not open because `MinimumThroughput` is 4.&#x20;
+### Practical example
 
-[image](https://www.google.com/s2/favicons?domain=https://www.pollydocs.org\&sz=32)
+Suppose Order Service sends 4 requests to User Service within 10 seconds.
 
-Polly+1
+| Request | Result |
+|---|---|
+| Request 1 | Failed |
+| Request 2 | Failed |
+| Request 3 | Successful |
+| Request 4 | Failed |
 
+Here:
 
+- Total requests = 4
+- Failed requests = 3
+- Failure ratio = 3 / 4 = 75%
+- Configured failure ratio = 50%
+
+Since the minimum throughput is reached and the failure ratio meets the configured threshold, the circuit opens.
+
+**Important:** If only 3 requests are made within the sampling window, the circuit will not open, even if all 3 fail, because the minimum throughput of 4 has not been reached.
 
 ## 4. Implement Circuit Breaker in our project
 
-We'll implement it in the same place where we configured Retry:
+We already implemented Retry for communication between Order Service and User Service.
 
-- `IUserMicroservicePolicies`
-- `UserMicroservicePolicies`
-- `Program.cs`
+Now we will add Circuit Breaker using the same architecture.
 
-We will continue using `AddResilienceHandler()` and the typed `UserServiceClient`. No manual `ExecuteAsync()` is required.
+Our implementation contains:
 
-### Step 1: Update `IUserMicroservicePolicies`
+1. `IUserMicroservicePolicies` – Interface.
+2. `UserMicroservicePolicies` – Implementation.
+3. `Program.cs` – Register and configure the resilience pipeline.
+4. `UserServiceClient` – Handle Circuit Breaker exceptions.
 
-Add a method for configuring the Circuit Breaker.
+We will continue using Polly v8 and `AddResilienceHandler()`.
 
-```
+### Step 1: Update IUserMicroservicePolicies
+
+Add a method for configuring Circuit Breaker.
+
+**IUserMicroservicePolicies.cs**
+
+```csharp
 using Polly;
 
 namespace BusinessLogicLayer.Policies
@@ -114,11 +147,13 @@ namespace BusinessLogicLayer.Policies
 }
 ```
 
-### Step 2: Update `UserMicroservicePolicies.cs`
+### Step 2: Update UserMicroservicePolicies.cs
 
 Add the Circuit Breaker implementation.
 
-```
+**UserMicroservicePolicies.cs**
+
+```csharp
 using Polly;
 using Polly.CircuitBreaker;
 using Polly.Retry;
@@ -170,35 +205,37 @@ namespace BusinessLogicLayer.Policies
 }
 ```
 
-Understanding our configuration:
+**Understanding the implementation:**
 
-- `FailureRatio = 0.5`: Circuit opens when at least 50% of sampled requests fail.
-- `SamplingDuration = 10 seconds`: Polly monitors failures over a 10-second window.
-- `MinimumThroughput = 4`: At least four executions must occur in that window.
-- `BreakDuration = 30 seconds`: Circuit stays open for 30 seconds before allowing a recovery probe.
-- `ShouldHandle`: Only the specified exceptions and HTTP responses count as failures.
+- `AddCircuitBreaker()` adds the Circuit Breaker strategy to the resilience pipeline.
+- `FailureRatio` defines the failure percentage threshold.
+- `SamplingDuration` defines the time window for monitoring failures.
+- `MinimumThroughput` defines the minimum number of executions needed to evaluate the failure ratio.
+- `BreakDuration` defines how long the circuit stays open.
+- `ShouldHandle` defines which exceptions and HTTP responses count as failures.
 
-These values are for learning and testing. Production thresholds should be chosen based on actual traffic and service behavior.&#x20;
+We have configured the same failure conditions for Retry and Circuit Breaker:
 
-[image](https://www.google.com/s2/favicons?domain=https://www.pollydocs.org\&sz=32)
+- `HttpRequestException`
+- HTTP 408 – Request Timeout
+- HTTP 429 – Too Many Requests
+- HTTP 5xx – Server Errors
 
-Polly+1
+This means ordinary HTTP 4xx responses, such as 400 or 404, are not treated as retryable or circuit-breaking failures by these predicates.
 
+### Step 3: Update Program.cs
 
+We already registered the policy implementation through Dependency Injection:
 
-### Step 3: Update `Program.cs`
-
-We already have this registration:
-
-```
+```csharp
 builder.Services.AddSingleton<
     IUserMicroservicePolicies,
     UserMicroservicePolicies>();
 ```
 
-Now update the existing `AddResilienceHandler()` configuration:
+Now update the existing `AddResilienceHandler()` configuration.
 
-```
+```csharp
 builder.Services.AddHttpClient<UserServiceClient>(client =>
 {
     client.BaseAddress = new Uri(
@@ -220,7 +257,7 @@ builder.Services.AddHttpClient<UserServiceClient>(client =>
 
 That's it. We have integrated both Retry and Circuit Breaker into the same HTTP resilience pipeline.
 
-Why are we adding Retry first and Circuit Breaker second?
+**Why do we configure Retry first and Circuit Breaker second?**
 
 The first strategy is the outer strategy, and the second is the inner strategy.
 
@@ -230,23 +267,19 @@ Our execution order is:
 2. Circuit Breaker
 3. HTTP request to User Service
 
-This means the Circuit Breaker observes individual HTTP attempts, including retry attempts. This is also the ordering used in Microsoft's standard HTTP resilience pipeline.&#x20;
+The Retry strategy can retry eligible failures. The Circuit Breaker monitors the individual attempts and can stop further attempts when the circuit opens.
 
-[image](https://www.google.com/s2/favicons?domain=https://devblogs.microsoft.com\&sz=32)
+If the Circuit Breaker is already open, it throws `BrokenCircuitException`. Our Retry predicate does not handle that exception, so it does not keep retrying an already-open circuit.
 
-.NET Blog+1
-
-
-
-### Step 4: Handle `BrokenCircuitException`
-
-There is one important change needed in our existing `UserServiceClient`.
+### Step 4: Handle BrokenCircuitException in UserServiceClient
 
 When the circuit is open, Polly throws a `BrokenCircuitException` without sending an HTTP request to User Service.
 
-Our existing client only catches `HttpRequestException`, so add another catch:
+Our existing `UserServiceClient` catches `HttpRequestException`, but it does not currently catch `BrokenCircuitException`.
 
-```
+Update the exception handling:
+
+```csharp
 catch (BrokenCircuitException)
 {
     return null;
@@ -257,53 +290,270 @@ catch (HttpRequestException)
 }
 ```
 
-Add this using statement:
+Add the following using statement:
 
-```
+```csharp
 using Polly.CircuitBreaker;
 ```
 
-This allows our application to handle an open circuit gracefully instead of allowing the exception to propagate unexpectedly.&#x20;
+Now our client handles both situations:
 
-[image](https://www.google.com/s2/favicons?domain=https://www.pollydocs.org\&sz=32)
+- `HttpRequestException`: An HTTP communication failure.
+- `BrokenCircuitException`: Polly blocked the request because the circuit is open.
 
-Polly+1
+Returning `null` allows the calling business logic to handle the unavailable User Service according to the application's requirements.
 
+## 5. Simple Circuit Breaker flow diagram
 
+```text
+        Order Service
+              |
+              v
+       Circuit Breaker
+              |
+       Is circuit closed?
+          /       \
+        YES        NO
+         |          |
+         v          v
+   Call User      Block Request
+    Service       (Fail Fast)
+         |
+         v
+   Is request successful?
+       /       \
+     YES        NO
+      |          |
+      v          v
+  Stay CLOSED  Count Failure
+                  |
+                  v
+          Failure threshold reached?
+                /       \
+              NO         YES
+              |           |
+              v           v
+          Stay CLOSED    OPEN
+                           |
+                           v
+                    Wait 30 seconds
+                           |
+                           v
+                       HALF-OPEN
+                           |
+                           v
+                     Test a request
+                       /       \
+                     YES        NO
+                      |          |
+                      v          v
+                   CLOSED      OPEN
+```
 
-## 5. Complete Circuit Breaker execution diagram
+### Quick revision
 
-\#chatgpt-mermaid-\_r_4u1\_{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;fill:rgb(237, 237, 237);}@keyframes edge-animation-frame{from{stroke-dashoffset:0;}}@keyframes dash{to{stroke-dashoffset:0;}}#chatgpt-mermaid-\_r_4u1\_ .edge-animation-slow{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 50s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_4u1\_ .edge-animation-fast{stroke-dasharray:9,5!important;stroke-dashoffset:900;animation:dash 20s linear infinite;stroke-linecap:round;}#chatgpt-mermaid-\_r_4u1\_ .error-icon{fill:rgb(48, 48, 48);}#chatgpt-mermaid-\_r_4u1\_ .error-text{fill:rgb(237, 237, 237);stroke:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_4u1\_ .edge-thickness-normal{stroke-width:1px;}#chatgpt-mermaid-\_r_4u1\_ .edge-thickness-thick{stroke-width:3.5px;}#chatgpt-mermaid-\_r_4u1\_ .edge-pattern-solid{stroke-dasharray:0;}#chatgpt-mermaid-\_r_4u1\_ .edge-thickness-invisible{stroke-width:0;fill:none;}#chatgpt-mermaid-\_r_4u1\_ .edge-pattern-dashed{stroke-dasharray:3;}#chatgpt-mermaid-\_r_4u1\_ .edge-pattern-dotted{stroke-dasharray:2;}#chatgpt-mermaid-\_r_4u1\_ .marker{fill:rgb(175, 175, 175);stroke:rgb(175, 175, 175);}#chatgpt-mermaid-\_r_4u1\_ .marker.cross{stroke:rgb(175, 175, 175);}#chatgpt-mermaid-\_r_4u1\_ svg{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:16px;}#chatgpt-mermaid-\_r_4u1\_ p{margin:0;}#chatgpt-mermaid-\_r_4u1\_ .label{font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";color:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_4u1\_ .cluster-label text{fill:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_4u1\_ .cluster-label span{color:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_4u1\_ .cluster-label span p{background-color:transparent;}#chatgpt-mermaid-\_r_4u1\_ .label text,#chatgpt-mermaid-\_r_4u1\_ span{fill:rgb(237, 237, 237);color:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_4u1\_ .node rect,#chatgpt-mermaid-\_r_4u1\_ .node circle,#chatgpt-mermaid-\_r_4u1\_ .node ellipse,#chatgpt-mermaid-\_r_4u1\_ .node polygon,#chatgpt-mermaid-\_r_4u1\_ .node path{fill:rgb(9, 23, 44);stroke:rgb(31, 78, 148);stroke-width:1px;}#chatgpt-mermaid-\_r_4u1\_ .rough-node .label text,#chatgpt-mermaid-\_r_4u1\_ .node .label text,#chatgpt-mermaid-\_r_4u1\_ .image-shape .label,#chatgpt-mermaid-\_r_4u1\_ .icon-shape .label{text-anchor:middle;}#chatgpt-mermaid-\_r_4u1\_ .node .katex path{fill:#000;stroke:#000;stroke-width:1px;}#chatgpt-mermaid-\_r_4u1\_ .rough-node .label,#chatgpt-mermaid-\_r_4u1\_ .node .label,#chatgpt-mermaid-\_r_4u1\_ .image-shape .label,#chatgpt-mermaid-\_r_4u1\_ .icon-shape .label{text-align:center;}#chatgpt-mermaid-\_r_4u1\_ .node.clickable{cursor:pointer;}#chatgpt-mermaid-\_r_4u1\_ .root .anchor path{fill:rgb(175, 175, 175)!important;stroke-width:0;stroke:rgb(175, 175, 175);}#chatgpt-mermaid-\_r_4u1\_ .arrowheadPath{fill:rgb(175, 175, 175);}#chatgpt-mermaid-\_r_4u1\_ .edgePath .path{stroke:rgb(175, 175, 175);stroke-width:1px;}#chatgpt-mermaid-\_r_4u1\_ .flowchart-link{stroke:rgb(175, 175, 175);fill:none;}#chatgpt-mermaid-\_r_4u1\_ .edgeLabel{background-color:rgb(0, 0, 0);text-align:center;}#chatgpt-mermaid-\_r_4u1\_ .edgeLabel p{background-color:rgb(0, 0, 0);}#chatgpt-mermaid-\_r_4u1\_ .edgeLabel rect{opacity:0.5;background-color:rgb(0, 0, 0);fill:rgb(0, 0, 0);}#chatgpt-mermaid-\_r_4u1\_ .labelBkg{background-color:rgba(0, 0, 0, 0.5);}#chatgpt-mermaid-\_r_4u1\_ .cluster rect{fill:rgb(48, 48, 48);stroke:rgba(255, 255, 255, 0.15);stroke-width:1px;}#chatgpt-mermaid-\_r_4u1\_ .cluster text{fill:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_4u1\_ .cluster span{color:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_4u1\_ div.mermaidTooltip{position:absolute;text-align:center;max-width:200px;padding:2px;font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";font-size:12px;background:rgb(48, 48, 48);border:1px solid rgba(255, 255, 255, 0.15);border-radius:2px;pointer-events:none;z-index:100;}#chatgpt-mermaid-\_r_4u1\_ .flowchartTitleText{text-anchor:middle;font-size:18px;fill:rgb(237, 237, 237);}#chatgpt-mermaid-\_r_4u1\_ rect.text{fill:none;stroke-width:0;}#chatgpt-mermaid-\_r_4u1\_ .icon-shape,#chatgpt-mermaid-\_r_4u1\_ .image-shape{background-color:rgb(0, 0, 0);text-align:center;}#chatgpt-mermaid-\_r_4u1\_ .icon-shape p,#chatgpt-mermaid-\_r_4u1\_ .image-shape p{background-color:rgb(0, 0, 0);padding:2px;}#chatgpt-mermaid-\_r_4u1\_ .icon-shape .label rect,#chatgpt-mermaid-\_r_4u1\_ .image-shape .label rect{opacity:0.5;background-color:rgb(0, 0, 0);fill:rgb(0, 0, 0);}#chatgpt-mermaid-\_r_4u1\_ .label-icon{display:inline-block;height:1em;overflow:visible;vertical-align:-0.125em;}#chatgpt-mermaid-\_r_4u1\_ .node .label-icon path{fill:currentColor;stroke:revert;stroke-width:revert;}#chatgpt-mermaid-\_r_4u1\_ .node .neo-node{stroke:rgb(31, 78, 148);}#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].node rect,#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].cluster rect,#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].node polygon{stroke:url(#chatgpt-mermaid-\_r_4u1\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].swimlane.cluster rect{filter:none;}#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].node path{stroke:url(#chatgpt-mermaid-\_r_4u1\_-gradient);stroke-width:1px;}#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].node .outer-path{filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].node .neo-line path{stroke:rgb(31, 78, 148);filter:none;}#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].node circle{stroke:url(#chatgpt-mermaid-\_r_4u1\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].node circle .state-start{fill:#000000;}#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].icon-shape .icon{fill:url(#chatgpt-mermaid-\_r_4u1\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_4u1\_ [data-look="neo"].icon-shape .icon-neo path{stroke:url(#chatgpt-mermaid-\_r_4u1\_-gradient);filter:drop-shadow( 1px 2px 2px rgba(185,185,185,1));}#chatgpt-mermaid-\_r_4u1\_ .node text{font-size:14px;font-weight:600;letter-spacing:normal;fill:rgb(153, 206, 255);}#chatgpt-mermaid-\_r_4u1\_ .edgeLabels text{font-size:13px;font-weight:600;letter-spacing:-0.08px;fill:rgb(153, 206, 255);}#chatgpt-mermaid-\_r_4u1\_ .node tspan[font-weight="normal"],#chatgpt-mermaid-\_r_4u1\_ .edgeLabels tspan[font-weight="normal"]{font-weight:600;}#chatgpt-mermaid-\_r_4u1\_ .edgeLabel .label rect{opacity:1;rx:13px;ry:13px;fill:rgb(0, 14, 26);stroke:rgb(26, 62, 95);stroke-width:1px;}#chatgpt-mermaid-\_r_4u1\_ .node rect,#chatgpt-mermaid-\_r_4u1\_ .node circle,#chatgpt-mermaid-\_r_4u1\_ .node ellipse,#chatgpt-mermaid-\_r_4u1\_ .node polygon,#chatgpt-mermaid-\_r_4u1\_ .node path{fill:rgb(0, 40, 77);stroke:rgba(255, 255, 255, 0.1);stroke-width:1px;}#chatgpt-mermaid-\_r_4u1\_ .node rect{rx:16px;ry:16px;}#chatgpt-mermaid-\_r_4u1\_ .mermaid-decision .label-container{fill:rgb(0, 14, 26);stroke:rgb(26, 62, 95);stroke-dasharray:2,2;}#chatgpt-mermaid-\_r_4u1\_ .edgePaths .flowchart-link{stroke:rgb(175, 175, 175);stroke-width:1px;stroke-linecap:round;stroke-linejoin:round;}#chatgpt-mermaid-\_r_4u1\_ .marker{fill:rgb(175, 175, 175);stroke:rgb(175, 175, 175);}#chatgpt-mermaid-\_r_4u1\_ :root{--mermaid-font-family:-apple-system-body,ui-sans-serif,-apple-system,system-ui,"Segoe UI",Helvetica,"Apple Color Emoji",Arial,sans-serif,"Segoe UI Emoji","Segoe UI Symbol";}Order Service sends requestRetry StrategyCircuit BreakerCircuit State?Call User ServiceThrow BrokenCircuitExceptionRequest successful?Return successful responseRecord failureFailure threshold reached?Retry if eligibleOpen CircuitBlock subsequent requestsWait for Break DurationHalf-OpenAllow probe requestProbe successful?Close CircuitHandle failure in Order ServiceClosedOpenYesNoNoYesYesNo
+- **Closed:** Requests pass normally.
+- **Open:** Requests are blocked immediately.
+- **Half-Open:** A probe request checks whether the service has recovered.
 
 ## 6. Retry vs Circuit Breaker
 
-| Retry                          | Circuit Breaker                                   |
-| ------------------------------ | ------------------------------------------------- |
-| Tries a failed request again.  | Temporarily blocks requests to a failing service. |
-| Useful for temporary failures. | Useful when a service is consistently failing.    |
-| Waits before retrying.         | Fails fast while open.                            |
-| Doesn't stop future requests.  | Stops requests until recovery is tested.          |
+| Retry | Circuit Breaker |
+|---|---|
+| Tries a failed request again. | Temporarily blocks requests to a failing service. |
+| Useful for temporary failures. | Useful when a service is consistently failing. |
+| Waits before retrying. | Fails fast while open. |
+| Does not stop future requests. | Stops requests until recovery is tested. |
+| Focuses on recovering from transient failures. | Focuses on preventing repeated calls to an unhealthy dependency. |
 
-One important thing to remember: Retry and Circuit Breaker solve different problems. Retry attempts recovery from temporary failures, while Circuit Breaker prevents repeated calls to an unhealthy dependency.
+**Can we use Retry and Circuit Breaker together?**
 
-## 7. How can we test it?
+Yes. They solve different problems.
 
-For our project:
+Retry attempts to recover from temporary failures, while Circuit Breaker prevents repeated calls to an unhealthy service.
 
-1. Keep User Service running.
-2. Send requests from Order Service and verify normal operation.
-3. Stop User Service.
-4. Send enough requests to meet the configured failure threshold.
-5. Observe that the circuit opens.
-6. Send another request while the circuit is open. It should fail immediately without reaching User Service.
-7. Start User Service again and wait 30 seconds.
-8. Send another request. Polly allows a probe request.
-9. If successful, the circuit returns to Closed.
+## 7. How to test Circuit Breaker in our project
 
-Interview question: What is the difference between Retry and Circuit Breaker?
+Follow these steps:
 
-A good answer:
+1. Start User Service.
+2. Start Order Service.
+3. Send requests from Order Service and verify that they work normally.
+4. Stop User Service.
+5. Send enough requests to meet the configured failure threshold.
+6. Observe that the circuit opens.
+7. Send another request while the circuit is open. It should fail immediately without reaching User Service.
+8. Start User Service again.
+9. Wait for the configured 30-second break duration to expire.
+10. Send another request. Polly allows a probe request to check whether User Service has recovered.
+11. If the probe succeeds, the circuit returns to Closed.
 
-"Retry attempts to execute a failed operation again, assuming the failure might be temporary. Circuit Breaker monitors failures and temporarily blocks requests when a dependency becomes unhealthy. Retry helps recover from transient failures, whereas Circuit Breaker prevents cascading failures and gives the dependent service time to recover."
+**Note:** Because Retry is also enabled, one incoming request from Order Service can result in multiple HTTP attempts. The Circuit Breaker monitors the attempts that reach it. Therefore, test the behavior while considering the configured retry count.
 
-Official reference: [Polly v8 – Circuit Breaker documentation](https://www.pollydocs.org/strategies/circuit-breaker?utm_source=chatgpt.com).
+---
+
+# 8. Scenario-Based Interview Questions
+
+### Q1. Your Order Service is calling User Service, but User Service is down. What happens?
+
+**Answer:**
+
+Without Circuit Breaker, Order Service may continue sending requests and waste resources.
+
+With Circuit Breaker, Polly monitors failures. Once the configured failure threshold is reached, it opens the circuit and blocks subsequent requests for the configured break duration.
+
+### Q2. What happens when the Circuit Breaker is in the Open state?
+
+**Answer:**
+
+When the circuit is Open, requests are not forwarded to the target service.
+
+Polly immediately throws a `BrokenCircuitException`, allowing the application to fail fast instead of waiting for another HTTP request to fail.
+
+### Q3. User Service was down, but now it has recovered. How does Order Service know?
+
+**Answer:**
+
+After the configured `BreakDuration` expires, the Circuit Breaker transitions to Half-Open.
+
+Polly allows a probe request to reach User Service.
+
+If the request succeeds, the circuit moves to Closed. If it fails, the circuit moves back to Open.
+
+### Q4. What is the difference between Closed, Open, and Half-Open?
+
+**Answer:**
+
+- Closed: Requests are allowed, and failures are monitored.
+- Open: Requests are blocked immediately.
+- Half-Open: A probe request is allowed to check whether the service has recovered.
+
+### Q5. You configured FailureRatio as 50%, SamplingDuration as 10 seconds, and MinimumThroughput as 4. Only three requests failed. Will the circuit open?
+
+**Answer:**
+
+No.
+
+The Circuit Breaker requires at least four executions within the 10-second sampling window before evaluating the failure ratio.
+
+Even if all three requests fail, the minimum throughput has not been reached.
+
+### Q6. What happens if the Circuit Breaker is Open and another request arrives?
+
+**Answer:**
+
+Polly immediately throws `BrokenCircuitException`.
+
+The request is not sent to the target microservice. This is called fail-fast behavior.
+
+### Q7. Can we use Retry and Circuit Breaker together?
+
+**Answer:**
+
+Yes.
+
+Retry handles temporary failures by attempting the request again.
+
+Circuit Breaker monitors failures and prevents repeated calls when the target service becomes unhealthy.
+
+Using both helps improve the resilience of microservice communication.
+
+### Q8. What is a cascading failure?
+
+**Answer:**
+
+A cascading failure occurs when one service becomes unhealthy and causes other dependent services to become unhealthy as well.
+
+For example:
+
+1. User Service becomes slow or unavailable.
+2. Order Service keeps waiting for User Service responses.
+3. Order Service starts consuming more resources.
+4. Order Service may also become unavailable.
+
+Circuit Breaker helps prevent this by stopping repeated calls to the unhealthy dependency.
+
+### Q9. What is fail-fast behavior?
+
+**Answer:**
+
+Fail-fast means immediately returning a failure instead of waiting for an operation that is likely to fail.
+
+When the Circuit Breaker is Open, it blocks requests immediately and throws `BrokenCircuitException`.
+
+### Q10. Does Circuit Breaker retry failed requests?
+
+**Answer:**
+
+No.
+
+Circuit Breaker does not retry requests. Its responsibility is to monitor failures and temporarily block requests when the failure threshold is reached.
+
+Retry is a separate resilience strategy.
+
+### Q11. Does Polly v8 use consecutive failure counting?
+
+**Answer:**
+
+No. Polly v8's standard Circuit Breaker uses a sampling-based approach.
+
+It evaluates the failure ratio over a configured sampling duration and requires the minimum throughput to be reached.
+
+### Q12. What happens if the probe request fails in Half-Open state?
+
+**Answer:**
+
+The Circuit Breaker moves back to Open and blocks requests for another configured break duration.
+
+### Q13. What is BrokenCircuitException?
+
+**Answer:**
+
+`BrokenCircuitException` is an exception thrown by Polly when an operation is attempted while the Circuit Breaker is Open.
+
+It indicates that the request was blocked and was not executed against the target service.
+
+### Q14. Does Circuit Breaker guarantee that the target service is healthy after the break duration?
+
+**Answer:**
+
+No.
+
+The break duration only determines when Polly can test the service again.
+
+The probe request checks whether the service has recovered. A successful probe closes the circuit; a failed probe opens it again.
+
+### Q15. Should we configure Circuit Breaker for every HTTP request?
+
+**Answer:**
+
+Not necessarily.
+
+Circuit Breaker is useful when communicating with external dependencies or downstream services that may become unavailable.
+
+Its configuration should depend on the service's traffic, failure characteristics, and business requirements.
+
+---
+
+## 9. Quick Interview Revision
+
+| Question | Short Answer |
+|---|---|
+| What is Circuit Breaker? | Prevents repeated calls to an unhealthy service. |
+| How many states? | Three: Closed, Open, Half-Open. |
+| What is FailureRatio? | Failure percentage threshold. |
+| What is SamplingDuration? | Time window for monitoring failures. |
+| What is MinimumThroughput? | Minimum executions required for evaluation. |
+| What is BreakDuration? | Time the circuit stays open. |
+| What is BrokenCircuitException? | Exception thrown when an open circuit blocks a request. |
+| Does Circuit Breaker retry? | No. Retry is a separate strategy. |
+| Can Retry and Circuit Breaker work together? | Yes. |
+| What is fail-fast? | Blocking a request immediately instead of executing it. |
+
+## 10. Official Documentation
+
+- [Polly v8 – Circuit Breaker Strategy](https://www.pollydocs.org/strategies/circuit-breaker.html)
+- [Polly v8 – Migration Guide](https://www.pollydocs.org/migration-v8.html)
+- [Microsoft – HTTP Resilience](https://learn.microsoft.com/en-us/dotnet/core/resilience/http-resilience)
+
+**Final takeaway:** Retry tries again when a request fails. Circuit Breaker stops calling a service when it is repeatedly failing. Together, they help make communication between microservices more resilient.
