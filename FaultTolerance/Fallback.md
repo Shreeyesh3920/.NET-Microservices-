@@ -1,5 +1,3 @@
-Bhai, ye notes directly GitHub README mein add kar sakta hai. Pehle concept, phir use cases, aur finally Product Service ka practical implementation. 😎
-
 # Polly Fallback Strategy in .NET 8
 
 ## 1. What is Fallback?
