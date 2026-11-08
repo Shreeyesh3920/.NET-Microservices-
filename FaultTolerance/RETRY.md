@@ -39,6 +39,7 @@ Retry is useful for temporary failures, such as:
 - HTTP 504 – Gateway Timeout.
 
 We should generally avoid retrying permanent failures such as HTTP 400, 401 and 404.
+<img width="1268" height="690" alt="image" src="https://github.com/user-attachments/assets/7574b542-8dee-4779-9382-d72630cd2e17" />
 
 ---
 
@@ -240,7 +241,7 @@ builder.Services.AddHttpClient<UserServiceClient>(client =>
     policies.ConfigureRetry(pipeline);
 });
 ```
-
+GetRequiredService ka matlab hai agar service registered nahi hai toh exception throw karo. Iske opposite GetService hai, jo registration missing hone par null return karta hai.
 **What happens here?**
 
 1. `AddHttpClient()` registers a typed HTTP client.
