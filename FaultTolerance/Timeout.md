@@ -1,8 +1,9 @@
 # Polly Timeout Strategy in .NET 8
 
 ## 1. What is Timeout Policy?
+<img width="1000" height="193" alt="image" src="https://github.com/user-attachments/assets/37ac1768-3d5b-4db6-8d81-20e3402d94ef" />
 
-Timeout Policy is a resilience strategy that defines the maximum amount of time an operation is allowed to execute. If the operation exceeds this configured time limit, Polly cancels the operation and throws a `TimeoutRejectedException`.
+If the operation exceeds this configured time limit, Polly cancels the operation and throws a `TimeoutRejectedException`.
 
 Simple example:
 
