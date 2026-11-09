@@ -1,219 +1,435 @@
-Redis (short for Remote Dictionary Server) is an open-source, in-memory data store primarily used as a caching solution, database, and message broker. It stores data in key-value pairs and supports advanced data structures (e.g., lists, sets, sorted sets, hashes). 
+# Redis Notes (Easy Revision)
 
-Bhai, ab teri file padh li. Mujhe samajh aa gaya confusion exactly kahan hai. Tere notes mein ek important distinction hai jo properly explain nahi hua.
+## 1. What is Redis?
 
-Chal, teri file ke basis par ek-ek concept clear karte hain. General definitions nahi ratwaunga.
+**Redis (Remote Dictionary Server)** is an open-source, in-memory data
+store.
 
-## 1. Sabse pehle ye 3 cheezein alag kar
+-   It stores data mainly in **RAM**, so read/write operations are very
+    fast.
+-   It stores data using **keys and values**.
+-   It supports data structures such as Strings, Hashes, Lists, Sets and
+    Sorted Sets.
+-   Redis can be used for caching, session storage, messaging and more.
 
-A. In-Memory Cache
+Example:
 
-ASP.NET Core – IMemoryCache
-
-Data application ki apni RAM mein store hota hai.
-
-[Caching in ASP.NET Core - DEV Community](https://images.openai.com/static-rsc-4/UC9kmlqXoOFHc76AVce8Auv4o9jWPEjczQbMMdu6D71jiJolqotLZxhTVtcuB17Ka6Cx1Dv65cWjwCkmiNtEIRPdXdb98rbjHBXpXl8EnduA1wnE9_Dem2X0di3qxHtPoCJ5oeUAMaDu_YyQTuq-XtCJ1AYO3XvJADAYWrWL0q0?purpose=inline)
-
-[dev.to](https://dev.to/donia_shaban_757cda160187/caching-in-aspnet-core-29e?utm_source=chatgpt.com)
-
-Example: App Server 1 ki RAM mein cached product hai. App Server 2 usko directly access nahi kar sakta.
-
-B. In-Memory Data Store
-
-Redis
-
-Redis ek separate server/process hai jo data apni RAM mein store karta hai.
-
-[The Good and the Bad of Redis In-Memory Database](https://images.openai.com/static-rsc-4/AVotunPY5X3uZX0cXc1iGwvsZIOQ_B9jsMTLqjfy9KPOscw3rZcoV-IVpeDLmSnzCMbvwrctVK5wQDG7DRKnjOOMPOGNp8eBSgduWXa7GC_K5TqJMDsboJ_1Yq1zQ-o6PRHKJdnrw0X2j4sEv8fT-Ont5ftCufT5W3foJLoo8hc?purpose=inline)
-
-[altexsoft.com](https://www.altexsoft.com/blog/redis-pros-and-cons/?utm_source=chatgpt.com)
-
-Example: Redis server ki RAM mein `product:101 = iPhone` stored hai.
-
-C. Distributed Caching
-
-Architecture / Caching approach
-
-Multiple application servers ek shared external cache use karte hain.
-
-[Redis Caching: Unlocking Hyper-Performance and Scalability in Modern Architectures](https://images.openai.com/static-rsc-4/itknp2-0BhZmpfUWp3L61UTsH-9fTZBmFVPwR45ujDzHkCFJs9bwh9W6OsIIRPrPF6syV75Py80JIKu8sIyvUwLpadCjXRSO6oO1c_zKLNm7L-s_60Hyhh6TD7SzDseZYFgIhBszgnvPKAQiNiuRSvdlB31sWOJ_wCQYjH-GW4s?purpose=inline)
-
-[linkedin.com](https://www.linkedin.com/pulse/redis-caching-unlocking-hyper-performance-scalability-shankar-ghate-0ayyf?utm_source=chatgpt.com)
-
-Example: App 1, App 2 aur App 3 same Redis server se data access karte hain.
-
-Ab main distinction:
-
-- In-memory cache = Application ki RAM.
-- Redis = Separate Redis server ki RAM.
-- Distributed caching = Multiple application instances ke beech cache share karna.
-
-Ye teen terms same cheez nahi hain.
-
-## 2. Teri file ka architecture samajh
-
-Teri file mein ye architecture explain kiya hai:
-
-[Amazon Interview: Design a OLTP System for RedBus | by Prem Vishnoi(cloudvala) | Medium](https://images.openai.com/static-rsc-4/x1OTcpnX04RTkKfT1ZAxKjEWXYO_-gMAwVoeoRnUtv2U6tETxQzfTv_4J8X1Jdbcn51UTI3h2-14SL1l1jUW3VxF7upXc5XjJ23co7-88-p3hQxjd3-9ffEJdC6uo_3uEqsrlvsprRKUEFjdXz_GcMV_G2P5wReu-JRjLqONxt8?purpose=inline)
-
-[premvishnoi.medium.com](https://premvishnoi.medium.com/amazon-interview-design-a-oltp-system-for-redbus-162270f97820?utm_source=chatgpt.com)
-
-Maan le NEC DM application mein 3 application servers hain.
-
-1. User document list request karta hai.
-2. Load Balancer request App Server 1 ko bhejta hai.
-3. App Server 1 Redis mein check karta hai.
-4. Data mil gaya toh Redis se return.
-5. Data nahi mila toh SQL Server se fetch karke Redis mein save.
-6. Next time App Server 2 ko same request mile, toh woh bhi Redis se data le sakta hai.
-
-Isliye SQL Server par repeated queries kam hoti hain.
-
-Important correction to your notes: Redis ka distributed caching provide karna aur Redis Cluster mein data sharding hona do alag concepts hain. Distributed cache ke liye multiple Redis nodes hona compulsory nahi hai. Ek Redis server bhi multiple application servers ke liye shared distributed cache provide kar sakta hai.&#x20;
-
-Pasted text(20261109-195307).txt
-
-
-
-## 3. Ab tere .NET code ko samajhte hain
-
-Teri file mein ye registration hai:
-
+``` text
+Key              Value
+product:101      iPhone
+user:1           Shree
 ```
+
+> **Remember:** Redis is an in-memory data store. Caching is one of its
+> use cases; Redis is not only a cache.
+
+## 2. What is caching?
+
+Caching means keeping a temporary copy of frequently used data in faster
+storage so that the application does not need to fetch the same data
+from the main database repeatedly.
+
+### Without caching
+
+``` text
+Request 1 -> .NET Application -> SQL Server
+Request 2 -> .NET Application -> SQL Server
+Request 3 -> .NET Application -> SQL Server
+```
+
+Every request queries the database.
+
+### With caching (Cache-Aside pattern)
+
+``` text
+                 .NET Application
+                        |
+                  Check Redis
+                   /       \
+               Cache Hit   Cache Miss
+                  |            |
+             Return Data   Fetch from SQL
+                               |
+                         Store in Redis
+                               |
+                           Return Data
+```
+
+Steps:
+
+1.  The application checks Redis for the requested data.
+2.  If the data exists (**cache hit**), return it from Redis.
+3.  If the data does not exist (**cache miss**), fetch it from the
+    database.
+4.  Store the fetched data in Redis.
+5.  Return the data to the user.
+
+Benefits: - Faster responses for repeated requests. - Fewer repeated
+database queries. - Reduced load on the main database.
+
+## 3. In-memory cache vs Redis vs distributed caching
+
+These terms describe different things.
+
+### In-memory cache in ASP.NET Core
+
+`IMemoryCache` stores cached data in the memory of the application
+process.
+
+-   Each application instance has its own local cache.
+-   Another application instance cannot directly access that local
+    cache.
+-   If the application process restarts, its in-process cache is lost.
+
+### Redis
+
+Redis runs as a separate server/process and stores data mainly in that
+Redis server's RAM.
+
+-   It is separate from the .NET application's memory.
+-   Applications communicate with it over a network.
+-   Redis can be used as a shared cache.
+
+### Distributed caching
+
+Distributed caching means multiple application instances can access a
+shared cache.
+
+Example: three .NET application servers use the same Redis server.
+
+``` text
+.NET App 1 -----\
+.NET App 2 -------> Redis Server (RAM)
+.NET App 3 -----/
+```
+
+All three applications can read and write shared cached data.
+
+**Important terminology:** - **Centralized** describes the topology in
+this example: one shared Redis server. - **Distributed caching**
+describes the cache being shared by multiple application instances. - A
+single Redis server can provide distributed caching. Redis Cluster is
+not required. - **Redis Cluster** is a separate Redis deployment mode
+that distributes/shards data across multiple Redis nodes.
+
+## 4. Redis use cases
+
+  -----------------------------------------------------------------------
+  Use case                            Example
+  ----------------------------------- -----------------------------------
+  Caching                             Keep frequently requested product
+                                      details in Redis
+
+  Session storage                     Share session-related data across
+                                      application servers
+
+  Pub/Sub messaging                   An Order Service publishes an
+                                      event; a Notification Service
+                                      subscribes
+
+  Distributed locking                 Help prevent multiple instances
+                                      from processing the same protected
+                                      operation at once
+
+  Leaderboards                        Use Sorted Sets to rank players by
+                                      score
+
+  Rate limiting                       Count API requests per user/time
+                                      window
+
+  Queues and event processing         Use Lists or Streams for
+                                      message/job workflows
+  -----------------------------------------------------------------------
+
+Notes: - Redis Pub/Sub does not retain messages for disconnected
+subscribers. - Redis Streams support persisted messages and consumer
+groups. - Distributed locks need careful expiry, ownership and failure
+handling.
+
+## 5. Redis data structures
+
+  Data structure   Simple meaning                    Example use
+  ---------------- --------------------------------- ------------------------
+  String           A value associated with a key     Cache a JSON string
+  Hash             Fields and values under one key   User profile
+  List             Ordered collection of values      Queue-like workflows
+  Set              Unique values                     Unique tags or members
+  Sorted Set       Unique values with scores         Leaderboard
+
+## 6. Using Redis in ASP.NET Core
+
+A common approach is to use the `IDistributedCache` abstraction with the
+Redis provider.
+
+### Install package
+
+``` bash
+dotnet add package Microsoft.Extensions.Caching.StackExchangeRedis
+```
+
+If using `IConnectionMultiplexer` directly, also install:
+
+``` bash
+dotnet add package StackExchange.Redis
+```
+
+### appsettings.json
+
+``` json
+{
+  "RedisCacheOptions": {
+    "Configuration": "localhost:6379",
+    "InstanceName": "MyApp:"
+  }
+}
+```
+
+`localhost:6379` means the Redis server is running on the same machine
+as the application. In a deployed environment, use the actual Redis
+host/connection configuration.
+
+### Program.cs --- register distributed cache
+
+``` csharp
 builder.Services.AddStackExchangeRedisCache(options =>
 {
-    options.Configuration = "localhost:6379";
-    options.InstanceName = "RedisCacheApplication";
+    options.Configuration =
+        builder.Configuration["RedisCacheOptions:Configuration"];
+
+    options.InstanceName =
+        builder.Configuration["RedisCacheOptions:InstanceName"];
 });
 ```
 
-Iska matlab:
+This registers an `IDistributedCache` implementation backed by Redis.
 
-- `AddStackExchangeRedisCache()` Redis ko distributed cache provider ke roop mein register karta hai.
-- `localhost:6379` Redis server ka address hai.
-- `InstanceName` cache keys ke liye prefix provide karta hai.
+### Inject and use IDistributedCache
 
-Ab service mein:
+``` csharp
+using Microsoft.Extensions.Caching.Distributed;
+using System.Text.Json;
 
-```
-private readonly IDistributedCache _cache;
-
-public ProductService(IDistributedCache cache)
+public class ProductService
 {
-    _cache = cache;
-}
-```
+    private readonly IDistributedCache _cache;
+    private readonly IProductRepository _repository;
 
-Yahan `IDistributedCache` inject ho raha hai.
-
-### Actual caching logic
-
-```
-public async Task<List<ProductDTO>> GetAllProducts()
-{
-    var cachedProducts =
-        await _cache.GetStringAsync("products");
-
-    if (cachedProducts != null)
+    public ProductService(
+        IDistributedCache cache,
+        IProductRepository repository)
     {
-        return JsonSerializer
-            .Deserialize<List<ProductDTO>>(cachedProducts)!;
+        _cache = cache;
+        _repository = repository;
     }
 
-    var products = await productRepository.GetAllAsync();
+    public async Task<List<ProductDTO>> GetAllProducts()
+    {
+        const string cacheKey = "products";
 
-    var productDTOs =
-        mapper.Map<List<ProductDTO>>(products);
+        // 1. Check Redis
+        var cachedData = await _cache.GetStringAsync(cacheKey);
 
-    await _cache.SetStringAsync(
-        "products",
-        JsonSerializer.Serialize(productDTOs)
-    );
+        if (cachedData is not null)
+        {
+            // Cache hit
+            return JsonSerializer.Deserialize<List<ProductDTO>>(cachedData)!;
+        }
 
-    return productDTOs;
+        // 2. Cache miss: fetch from the database
+        var products = await _repository.GetAllAsync();
+
+        // Map to DTOs if required
+        var productDtos = products
+            .Select(p => new ProductDTO
+            {
+                Id = p.Id,
+                Name = p.Name
+            })
+            .ToList();
+
+        // 3. Store the result in Redis
+        await _cache.SetStringAsync(
+            cacheKey,
+            JsonSerializer.Serialize(productDtos),
+            new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+            });
+
+        return productDtos;
+    }
 }
 ```
 
-Isko samajh:
+`IDistributedCache` provides common cache operations such as: -
+`GetAsync()` / `GetStringAsync()` - `SetAsync()` / `SetStringAsync()` -
+`RefreshAsync()` - `RemoveAsync()`
 
-| Code                          | Kya kar raha hai?                   |
-| ----------------------------- | ----------------------------------- |
-| `GetStringAsync()`            | Redis mein data check kar raha hai  |
-| `if (cachedProducts != null)` | Cache hit check                     |
-| `GetAllAsync()`               | SQL Server se data fetch            |
-| `Serialize()`                 | Object ko JSON string bana raha hai |
-| `SetStringAsync()`            | Redis mein data save                |
+The cache API stores byte arrays; the string helper methods make string
+values easier to work with. Objects are commonly serialized to JSON
+before being stored.
 
-Pasted text(20261109-195307).txt
+## 7. Cache expiration
 
-## 4. Ek aur important distinction
+Expiration controls how long cached data remains available.
 
-Teri file mein `IConnectionMultiplexer` bhi hai.
+### Absolute expiration
 
+The entry expires at a fixed time after it is created, even if it is
+accessed frequently.
+
+``` csharp
+new DistributedCacheEntryOptions
+{
+    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30)
+}
 ```
+
+Use it when data should be refreshed after a maximum period, such as
+product prices or news.
+
+### Sliding expiration
+
+The inactivity timer resets when the entry is accessed. If it is not
+accessed for the configured period, it expires.
+
+``` csharp
+new DistributedCacheEntryOptions
+{
+    SlidingExpiration = TimeSpan.FromMinutes(5)
+}
+```
+
+Use it for data that should remain cached while it is actively used.
+
+### Using both
+
+``` csharp
+new DistributedCacheEntryOptions
+{
+    AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30),
+    SlidingExpiration = TimeSpan.FromMinutes(5)
+}
+```
+
+The entry expires when either: - it reaches the 30-minute absolute
+limit, or - it has not been accessed for 5 minutes.
+
+Absolute expiration acts as the maximum lifetime.
+
+`RefreshAsync()` refreshes the sliding expiration timeout (when
+supported by the cache provider). It does **not** change the cached data
+itself.
+
+## 8. IDistributedCache vs IConnectionMultiplexer
+
+### IDistributedCache
+
+Use this when you need common cache operations through a .NET
+abstraction.
+
+``` csharp
+private readonly IDistributedCache _cache;
+```
+
+Typical operations: - Get cached data. - Set cached data. - Remove
+cached data. - Refresh expiration.
+
+### IConnectionMultiplexer
+
+`IConnectionMultiplexer` is provided by StackExchange.Redis. It manages
+connections to Redis and gives access to Redis-specific functionality.
+
+Registration:
+
+``` csharp
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-    ConnectionMultiplexer.Connect("localhost:6379"));
+{
+    var configuration =
+        sp.GetRequiredService<IConfiguration>();
+
+    var connectionString =
+        configuration["RedisCacheOptions:Configuration"];
+
+    return ConnectionMultiplexer.Connect(connectionString!);
+});
 ```
 
-Iska purpose `IDistributedCache` se different hai.
+Inject it:
 
-| IDistributedCache                  | IConnectionMultiplexer          |
-| ---------------------------------- | ------------------------------- |
-| .NET distributed cache abstraction | Redis client connection manager |
-| Get, Set, Remove                   | Direct Redis operations         |
-| Simple caching                     | Advanced Redis functionality    |
-| Provider-independent API           | Redis-specific API              |
+``` csharp
+private readonly IConnectionMultiplexer _redis;
 
-For example, agar support engineer ko kisi particular document ka cache manually delete karna hai:
-
-```
-var db = multiplexer.GetDatabase();
-
-await db.KeyDeleteAsync(
-    "RedisCacheApplicationdocuments"
-);
+public CacheAdminService(IConnectionMultiplexer redis)
+{
+    _redis = redis;
+}
 ```
 
-Yahan direct Redis command execute ho raha hai.
+Example: delete a specific Redis key.
 
-Pasted text(20261109-195307).txt
+``` csharp
+var db = _redis.GetDatabase();
 
-## 5. Ab apna understanding test kar
+await db.KeyDeleteAsync("MyApp:products");
+```
 
-Redis fundamentals quiz
+Use `IConnectionMultiplexer` when you need Redis-specific operations
+such as: - Working with Redis data structures. - Deleting keys or
+scanning keys. - Pub/Sub. - Server information and diagnostics. -
+Distributed locks.
 
-0/4 answered
+**Remember:** `IDistributedCache` is a .NET abstraction.
+`IConnectionMultiplexer` is a Redis-specific client API. They serve
+different needs.
 
-Q1. Redis data kahan store karta hai?
+## 9. Quick revision
 
-ASP.NET Core application ki RAM mein
+  -----------------------------------------------------------------------
+  Question                            Short answer
+  ----------------------------------- -----------------------------------
+  What is Redis?                      An in-memory data store
 
-Redis server ki RAM mein
+  Where does Redis store data?        Mainly in the Redis server's RAM
 
-Sirf SQL Server disk mein
+  Is Redis only used for caching?     No, caching is one use case
 
-Q2. 3 ASP.NET Core application instances same Redis server use kar rahe hain. Ye kya hai?
+  What is a cache hit?                Requested data is found in the
+                                      cache
 
-In-memory caching only
+  What is a cache miss?               Requested data is not found in the
+                                      cache
 
-Distributed caching
+  What is distributed caching?        Multiple application instances
+                                      share a cache
 
-SQL replication
+  Does distributed caching require    No
+  Redis Cluster?                      
 
-Q3. Kya distributed caching ke liye Redis Cluster compulsory hai?
+  What is `IMemoryCache`?             In-process application memory cache
 
-Yes
+  What is `IDistributedCache`?        .NET abstraction for distributed
+                                      caching
 
-No
+  What is `IConnectionMultiplexer`?   StackExchange.Redis connection
+                                      manager/client API
 
-Q4. IMemoryCache aur Redis mein main difference?
+  What is TTL/expiration?             How long a cache entry remains
+                                      available
+  -----------------------------------------------------------------------
 
-Dono same process ki RAM use karte hain
+## 10. Important points to remember
 
-IMemoryCache application-local hai, Redis separate server hai
-
-Redis SQL Server hai
-
-Check my answers
-
-Bhai, meri recommendation: pehle ye four concepts crystal clear karte hain. Uske baad tere notes ke according `IDistributedCache`, expiration, `IConnectionMultiplexer` aur Redis commands revise karenge.
+1.  Redis is an in-memory data store; caching is one of its use cases.
+2.  Redis runs separately from the .NET application and uses its own
+    server/process memory.
+3.  Multiple .NET application instances can share one Redis server.
+4.  A single Redis server can be used for distributed caching; Redis
+    Cluster is not mandatory.
+5.  `IMemoryCache` is local to an application process.
+6.  `IDistributedCache` gives .NET applications a common API for
+    distributed caching.
+7.  `IConnectionMultiplexer` provides access to Redis-specific features.
+8.  Cache data should not automatically be treated as the permanent
+    source of truth; the primary database usually remains the source of
+    truth.
