@@ -299,6 +299,37 @@ new DistributedCacheEntryOptions
     SlidingExpiration = TimeSpan.FromMinutes(5)
 }
 ```
+If it isn't accessed for 5 minutes, it expires earlier.
+
+SlidingWindow:
+
+10:00  Cache Created
+        |
+        | (expires at 10:10)
+        |
+10:05  Cache Hit
+        |
+        | Expiry becomes 10:15
+        |
+10:12  Cache Hit
+        |
+        | Expiry becomes 10:22
+        |
+10:18  Cache Hit
+        |
+        | Expiry becomes 10:28
+        |
+10:28  No requests
+        |
+        ▼
+Cache Expires
+
+
+Absolute Expiration: Expire the cache after a fixed time, even if people keep using it. 
+Use it when the data should be refreshed regularly (e.g., product list, news, prices).
+
+Sliding Expiration: Keep the cache as long as people keep using it; expire it only after it's been idle for some time. 
+Use it for data that rarely changes but is accessed frequently (e.g., user session, user permissions, application settings).
 
 Use it for data that should remain cached while it is actively used.
 
