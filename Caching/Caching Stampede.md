@@ -83,3 +83,66 @@ Only one SQL query for this cache miss.
 
 - First check: Avoid acquiring the lock when data is already cached.
 - Second check: Another request might have populated Redis while this request was waiting for the lock.
+
+## 1. TTL Jitter – Spread expiration times
+
+Problem: Multiple cache entries expire at the same time, causing many requests to hit the database together.
+
+Solution: Add a random time to the cache TTL.
+
+Pseudocode:
+
+```
+Generate random TTL (25–35 minutes)
+
+Store data in Redis with that TTL
+```
+
+Example:
+
+- Product A → 25 minutes
+- Product B → 32 minutes
+- Product C → 28 minutes
+
+Result: Cache entries expire at different times, reducing simultaneous cache misses.
+
+## 2. Locking – Control concurrent requests
+
+Problem: 100 requests access the same cache key when it expires. All 100 try to fetch data from the database.
+
+Solution: Allow only one request to fetch data while others wait.
+
+Pseudocode:
+
+```
+Check Redis cache
+
+IF data exists:
+    Return cached data
+
+ELSE:
+    Acquire lock
+
+    Check Redis cache again
+
+    IF data exists:
+        Return cached data
+
+    ELSE:
+        Fetch data from database
+        Store data in Redis
+
+    Release lock
+    Return data
+```
+
+Result: Only one request fetches data from the database; waiting requests use the newly populated cache.
+
+Remember for interviews:
+
+- TTL Jitter: Prevents many cache entries from expiring simultaneously.
+- Locking: Prevents multiple requests from fetching the same missing data simultaneously.
+
+
+<img width="1752" height="897" alt="image" src="https://github.com/user-attachments/assets/4f98ad07-03f1-4941-abf9-c3d55fa0cdf8" />
+
