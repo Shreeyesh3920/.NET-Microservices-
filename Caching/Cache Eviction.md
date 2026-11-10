@@ -1,3 +1,4 @@
+Cache eviction is the process of removing data from a cache when it becomes full to make space for new or more relevant data
 Imagine Redis has limited RAM. You keep adding products to the cache, and eventually Redis reaches its configured memory limit (maxmemory).
 Ab Redis ko decide karna padega ki kaunsa cached data remove karna hai. This process is called Cache Eviction.
 
