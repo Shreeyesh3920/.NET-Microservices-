@@ -22,7 +22,13 @@ user:1           Shree
 
 > **Remember:** Redis is an in-memory data store. Caching is one of its
 > use cases; Redis is not only a cache.
-
+Remember these points
+- Redis runs as a separate server, not inside your .NET application.
+- Redis uses the RAM of the machine where the Redis server runs.
+- Multiple application instances can connect to one shared Redis server.
+- If Instance 1 stores product data in Redis, Instance 2 can read the same cached data.
+- This reduces repeated SQL Server queries and improves response time.
+- 
 ## 2. What is caching?
 
 Caching means keeping a temporary copy of frequently used data in faster
