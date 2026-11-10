@@ -28,7 +28,7 @@ Remember these points
 - Multiple application instances can connect to one shared Redis server.
 - If Instance 1 stores product data in Redis, Instance 2 can read the same cached data.
 - This reduces repeated SQL Server queries and improves response time.
-- 
+  
 ## 2. What is caching?
 
 Caching means keeping a temporary copy of frequently used data in faster
