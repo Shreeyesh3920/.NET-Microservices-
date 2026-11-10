@@ -115,3 +115,139 @@ Expected output:
 ```
 
 Complexity: Get = O(1) average, Put = O(1) average.
+
+
+LFU (Least Frequently Used) implementation in C#
+
+### LFU Cache – C# Solution
+
+```
+public class LFUCache
+{
+    int capacity;
+    int minFrequency = 0;
+
+    Dictionary<int, int> values = new();
+    Dictionary<int, int> frequencies = new();
+
+    Dictionary<int, LinkedList<int>> frequencyList = new();
+
+    public LFUCache(int capacity)
+    {
+        this.capacity = capacity;
+    }
+
+    public int Get(int key)
+    {
+        if (!values.ContainsKey(key))
+            return -1;
+
+        UpdateFrequency(key);
+
+        return values[key];
+    }
+
+    public void Put(int key, int value)
+    {
+        if (capacity == 0)
+            return;
+
+        if (values.ContainsKey(key))
+        {
+            values[key] = value;
+            UpdateFrequency(key);
+            return;
+        }
+
+        if (values.Count == capacity)
+        {
+            int lfuKey = frequencyList[minFrequency].Last.Value;
+
+            frequencyList[minFrequency].RemoveLast();
+
+            values.Remove(lfuKey);
+            frequencies.Remove(lfuKey);
+        }
+
+        values[key] = value;
+        frequencies[key] = 1;
+
+        if (!frequencyList.ContainsKey(1))
+            frequencyList[1] = new LinkedList<int>();
+
+        frequencyList[1].AddFirst(key);
+
+        minFrequency = 1;
+    }
+
+    private void UpdateFrequency(int key)
+    {
+        int oldFrequency = frequencies[key];
+
+        frequencyList[oldFrequency].Remove(key);
+
+        if (frequencyList[oldFrequency].Count == 0)
+        {
+            frequencyList.Remove(oldFrequency);
+
+            if (minFrequency == oldFrequency)
+                minFrequency++;
+        }
+
+        frequencies[key]++;
+
+        int newFrequency = frequencies[key];
+
+        if (!frequencyList.ContainsKey(newFrequency))
+            frequencyList[newFrequency] = new LinkedList<int>();
+
+        frequencyList[newFrequency].AddFirst(key);
+    }
+}
+```
+
+### One test case
+
+```
+LFUCache cache = new LFUCache(2);
+
+cache.Put(1, 10);
+cache.Put(2, 20);
+
+Console.WriteLine(cache.Get(1)); // 10
+
+cache.Put(3, 30); // Evicts key 2
+
+Console.WriteLine(cache.Get(2)); // -1
+Console.WriteLine(cache.Get(3)); // 30
+Console.WriteLine(cache.Get(1)); // 10
+```
+
+Expected output:
+
+```
+10
+-1
+30
+10
+```
+
+### How LFU decides eviction
+
+Suppose:
+
+| Key | Frequency |
+| --- | --------- |
+| 1   | 2         |
+| 2   | 1         |
+| 3   | 1         |
+
+Key 2 and 3 both have frequency 1. We evict the least recently used among them (key 2 in this example).
+
+Complexity:
+
+- Get: O(1) average
+- Put: O(1) average
+- Eviction: O(1)
+
+LFU uses frequency buckets, and when frequencies tie, it uses LRU order within that frequency.
