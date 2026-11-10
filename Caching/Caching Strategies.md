@@ -6,6 +6,7 @@ A caching strategy defines how an application reads data from a cache, loads mis
 ## 1. Cache-Aside (Lazy Loading)
 
 **How it works:** The application checks the cache first. If the data is not found, it fetches the data from the database, stores it in the cache, and returns it.
+<img width="1000" height="500" alt="image" src="https://github.com/user-attachments/assets/29f4f8bb-64bd-4681-a3cc-adb68e0a9ee6" />
 
 ### Advantages
 - Simple and easy to implement.
