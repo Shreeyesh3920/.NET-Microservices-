@@ -140,3 +140,53 @@ For your ProductServiceAPI:
 My recommendation: Start with Absolute Expiration of 30 minutes, and invalidate `all_products` after successful Add, Update, or Delete operations.
 
 Remember: TTL controls how long data stays in cache. Cache invalidation controls when your application deliberately removes cached data.
+
+
+Why do we invalidate the cache instead of updating it directly?
+
+Ek simple example: Do users simultaneously ek hi student's marks update kar rahe hain.
+
+Initial Redis cache:
+
+```
+Rahul = 70
+Priya = 80
+```
+
+- Request A: Rahul ke marks 70 → 90.
+- Request B: Priya ke marks 80 → 95.
+
+Dono Redis se same old data read karte hain.
+
+Request A ki copy:
+
+```
+Rahul = 90
+Priya = 80
+```
+
+Request B ki copy:
+
+```
+Rahul = 70
+Priya = 95
+```
+
+Ab A apni copy Redis mein save karta hai. Uske baad B apni copy save karta hai.
+
+Final Redis:
+
+```
+Rahul = 70  ❌
+Priya = 95 ✅
+```
+
+Rahul ka update lost ho gaya!
+
+Isliye hum kya karenge?
+
+Database mein successful update ke baad Redis ki puri cached entry delete kar denge.
+
+Next request database se latest data lekar Redis mein fresh cache create karegi.
+
+Bas bhai, isi wajah se humare current Cache-Aside implementation mein update karne ke bajaye cache invalidate karna prefer karte hain.
