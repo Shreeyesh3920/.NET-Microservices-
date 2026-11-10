@@ -142,9 +142,9 @@ My recommendation: Start with Absolute Expiration of 30 minutes, and invalidate 
 Remember: TTL controls how long data stays in cache. Cache invalidation controls when your application deliberately removes cached data.
 
 
-## Why do we invalidate the cache instead of updating it directly?
+## Why do we invalidate (Delete) the cache instead of updating it directly?
 
-Ek simple example: Do users simultaneously ek hi student's marks update kar rahe hain.
+- Ek simple example: Do users simultaneously ek hi student's marks update kar rahe hain.
 
 Initial Redis cache:
 
