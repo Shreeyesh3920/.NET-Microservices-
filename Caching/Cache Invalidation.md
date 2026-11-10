@@ -190,3 +190,12 @@ Database mein successful update ke baad Redis ki puri cached entry delete kar de
 Next request database se latest data lekar Redis mein fresh cache create karegi.
 
 Bas bhai, isi wajah se humare current Cache-Aside implementation mein update karne ke bajaye cache invalidate karna prefer karte hain.
+
+# Interview Answer:
+
+“We prefer cache invalidation over directly updating cached data because it is simpler and reduces the risk of data inconsistency.
+
+For example, if two requests simultaneously update different records in the same cached list, both may read the old cache and overwrite each other’s changes, causing a race condition.
+
+So, we first update the database and then invalidate the cache key. The next read fetches fresh data from the database and repopulates Redis.
+This follows the Cache-Aside pattern, where the database is the source of truth.”
