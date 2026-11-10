@@ -1,145 +1,166 @@
 A caching strategy defines how an application reads data from a cache, loads missing data, and handles updates.
 <img width="1307" height="727" alt="image" src="https://github.com/user-attachments/assets/ccd13b79-5c52-4b2f-8869-4333d0cae311" />
 
-Redis Caching Strategies
-1. Cache-Aside (Lazy Loading)
-How it works: The application checks the cache first. If the data is
-missing, it reads from the database, stores the result in the cache, and
-returns it.
+# Redis Caching Strategies
 
-Advantages - Simple and easy to implement. - Good for read-heavy
-workloads. - The application can still read from the database if the
-cache is unavailable, provided fallback handling is implemented.
+## 1. Cache-Aside (Lazy Loading)
 
-Disadvantages - The application must manage cache misses and
-invalidation. - Cached data can become stale until it is updated or
-expires. - Many simultaneous misses can overload the database (cache
-stampede).
+**How it works:** The application checks the cache first. If the data is not found, it fetches the data from the database, stores it in the cache, and returns it.
 
-When to use - General-purpose caching. - Product catalogues, product
-details, and user profiles. - Read-heavy applications where occasional
-cache misses are acceptable.
-2. Read-Through
-How it works: The application always requests data through the cache
-layer. If the data is missing, the cache layer fetches it from the
-database, stores it, and returns it.
+### Advantages
+- Simple and easy to implement.
+- Works well for read-heavy workloads.
+- Application can continue working if the cache goes down, provided database fallback is implemented.
 
-Advantages - Cache-miss loading logic is centralized. - Application
-code can be simpler. - Useful when many parts of an application need the
-same loading behaviour.
+### Disadvantages
+- Application must manage cache misses and invalidation.
+- Cached data can become stale until it is updated or expires.
+- Multiple simultaneous cache misses can overload the database (Cache Stampede).
 
-Disadvantages - Requires a cache provider or custom layer that can
-fetch data from the database. - Adds complexity to the caching layer. -
-If the cache layer is unavailable and there is no fallback, reads can
-fail.
+### When to Use
+- General-purpose caching.
+- Product catalogues, product details, and user profiles.
+- Applications with more read operations than write operations.
 
-When to use - When you want the cache layer to manage database
-fetching. - When multiple services or application areas share the same
-caching behaviour.
+---
 
-Note: Redis and .NET's IDistributedCache do not automatically
-fetch data from SQL Server. Read-Through behaviour must be implemented
-in your application or cache provider.
-3. Write-Through
-How it works: On a write, the cache layer coordinates updating the
-database and the cache before the operation is considered complete.
+## 2. Read-Through
 
-Advantages - Cache is updated as part of the write flow. - Reduces
-the chance of serving old cached data after a successful write. - Keeps
-write behaviour centralized.
+**How it works:** The application always requests data through the cache layer. If the data is not found, the cache layer fetches it from the database, stores it in the cache, and returns it.
 
-Disadvantages - Writes can be slower because both stores are
-updated. - Failure handling is more complicated if one update succeeds
-and the other fails. - A normal Redis operation and SQL transaction are
-not automatically atomic.
+### Advantages
+- Cache-miss handling is centralized.
+- Simplifies application code.
+- Provides consistent data-loading behaviour.
 
-When to use - When data freshness after updates is important. - For
-data such as product prices or inventory, when the application can
-handle the extra write complexity.
-4. Write-Back (Write-Behind)
-How it works: The application updates the cache first and returns
-quickly. The database is updated later by a background process.
+### Disadvantages
+- Requires a custom cache layer or provider that supports database fetching.
+- Adds complexity to the caching layer.
+- Cache failure can cause read failures if no fallback is implemented.
 
-Advantages - Fast write response. - Can reduce database write
-load. - Background processing can batch updates.
+### When to Use
+- When you want the cache layer to handle database fetching.
+- When multiple application components share the same caching logic.
 
-Disadvantages - The database may temporarily contain old data. -
-Pending updates can be lost if they are not stored durably and the
-system fails. - Requires reliable background processing, retries, and
-recovery.
+**Note:** Redis and .NET's `IDistributedCache` do not automatically fetch data from SQL Server. This behaviour must be implemented separately.
 
-When to use - High-write workloads where eventual consistency is
-acceptable. - Analytics, activity tracking, or workloads where updates
-can safely be processed later.
+---
 
-Avoid using it casually for financial transactions, account
-balances, or other critical data without durable storage and recovery
-guarantees.
-5. Refresh-Ahead
-How it works: Frequently accessed cache entries are refreshed in the
-background before they expire, so users are less likely to encounter a
-cache miss.
+## 3. Write-Through
 
-Advantages - Reduces cache misses for popular data. - Helps maintain
-fast response times around expiry. - Can reduce sudden database traffic
-when popular entries expire.
+**How it works:** When data is updated, both the database and cache are updated as part of the same write operation. The operation completes after both updates succeed.
 
-Disadvantages - Background refresh adds complexity. - Data may be
-refreshed even when nobody needs it. - Refresh jobs create additional
-database load.
+### Advantages
+- Cache is updated during the write operation.
+- Reduces the chances of serving stale data after an update.
+- Keeps cache updates consistent with the write flow.
 
-When to use - Frequently accessed data that changes regularly. -
-Popular dashboards, news feeds, and trending product lists.
-6. Write-Around (Related Write Pattern)
-How it works: Writes go directly to the database and bypass the
-cache. The cache is populated later when the data is read.
+### Disadvantages
+- Write operations can be slower because both stores are updated.
+- Failure handling becomes more complicated.
+- Database and cache updates are not automatically atomic.
 
-Advantages - Avoids filling the cache with data that may never be
-read. - Keeps one-time or write-heavy data out of the cache.
+### When to Use
+- When data freshness is important.
+- Product prices, inventory, and user information.
+- Applications that can accept additional write latency.
 
-Disadvantages - The first read after a write may be a cache miss. -
-If an old cache entry exists, it must be invalidated or it may serve
-stale data.
+---
 
-When to use - Data that is written often but read infrequently. -
-Workloads where caching every write would waste cache space.
-Quick Comparison
-  Pattern           Read behaviour    Write behaviour   Best suited for
-  Cache-Aside       Application       Application       General, read-heavy
-checks cache;     updates DB and    workloads
-loads from DB on  manages cache
-miss                                
+## 4. Write-Back (Write-Behind)
 
-  Read-Through      Cache layer loads Separate write    Centralized cache
-from DB on miss   strategy          loading
+**How it works:** The application updates the cache first and returns a response. The database is updated later by a background process.
 
-  Write-Through     Usually reads     Cache and DB      Freshness after writes
-from cache        updated in the
-write flow        
+### Advantages
+- Very fast write operations.
+- Reduces immediate database write load.
+- Background processing can batch multiple updates.
 
-  Write-Back        Reads from cache  Cache first; DB   High-write,
-later             eventual-consistency
-workloads
+### Disadvantages
+- Database may temporarily contain outdated data.
+- Pending updates can be lost if the system crashes before they are persisted.
+- Requires reliable background processing, retries, and recovery mechanisms.
 
-  Refresh-Ahead     Popular entries   Background        Frequently accessed
-refreshed before  refresh           data
-expiry                              
-Write-Around      Cache is checked  Writes bypass     Write-heavy,
-on reads          cache             rarely-read data
-Simple Rule for Choosing
-- Need a simple, general solution? Use Cache-Aside.
-- Want the cache layer to load missing data? Use Read-Through.
-- Need cache updated during writes? Consider Write-Through.
-- Need very fast writes and can accept delayed database updates?
-  Consider Write-Back.
-- Need popular data refreshed before expiry? Consider
-  Refresh-Ahead.
-- Most written data is rarely read? Consider Write-Around.
-Important
-These patterns are not all mutually exclusive. For example, an
-application can use Cache-Aside for reads and invalidate the relevant
-cache entry after a successful database update.
+### When to Use
+- Write-heavy applications.
+- Analytics and activity tracking.
+- Applications where eventual consistency is acceptable.
 
-TTL controls how long a cache entry lives. Cache invalidation removes or
-updates an entry when its data changes. Neither one automatically
-guarantees consistency between Redis and the database.
+**Note:** Avoid using this approach for critical financial transactions without proper durability and recovery mechanisms.
+
+---
+
+## 5. Refresh-Ahead
+
+**How it works:** Frequently accessed cache entries are refreshed in the background before they expire. This reduces the chances of users encountering a cache miss.
+
+### Advantages
+- Reduces cache misses for frequently accessed data.
+- Improves response times.
+- Helps avoid sudden database load when popular cache entries expire.
+
+### Disadvantages
+- Requires background processing.
+- Data may be refreshed even when nobody needs it.
+- Creates additional database load.
+
+### When to Use
+- Frequently accessed data that changes regularly.
+- Popular dashboards and news feeds.
+- Trending products and frequently accessed catalogues.
+
+---
+
+## 6. Write-Around
+
+**How it works:** Write operations go directly to the database and bypass the cache. Data is added to the cache only when it is requested later.
+
+### Advantages
+- Avoids caching data that may never be accessed.
+- Reduces unnecessary cache writes.
+- Useful for write-heavy workloads.
+
+### Disadvantages
+- First read after a write results in a cache miss.
+- Existing cached entries must be invalidated to avoid stale data.
+
+### When to Use
+- Data that is written frequently but read rarely.
+- Applications where caching every write would waste cache space.
+
+---
+
+## Quick Comparison
+
+| Strategy | Read Behaviour | Write Behaviour | Best Suited For |
+|---|---|---|---|
+| Cache-Aside | Application checks cache and fetches from DB on a miss | Application updates DB and manages cache | General-purpose, read-heavy workloads |
+| Read-Through | Cache layer fetches from DB on a miss | Separate write strategy | Centralized cache loading |
+| Write-Through | Reads from cache | Updates cache and DB together | Data freshness after updates |
+| Write-Back | Reads from cache | Updates cache first, DB later | High-write workloads |
+| Refresh-Ahead | Popular entries are refreshed before expiry | Background refresh | Frequently accessed data |
+| Write-Around | Cache is checked during reads | Writes bypass cache | Write-heavy, rarely-read data |
+
+---
+
+## Which Strategy Should You Choose?
+
+| Requirement | Recommended Strategy |
+|---|---|
+| Need a simple caching solution | Cache-Aside |
+| Want the cache layer to handle database fetching | Read-Through |
+| Need cache updates during write operations | Write-Through |
+| Need faster writes and can accept eventual consistency | Write-Back |
+| Want popular data refreshed before expiry | Refresh-Ahead |
+| Data is written frequently but rarely read | Write-Around |
+
+---
+
+## Important Notes
+
+- These caching strategies are not mutually exclusive. Different strategies can be combined based on application requirements.
+- Cache-Aside is a good starting point for most applications.
+- TTL (Time To Live) defines how long a cache entry remains valid.
+- Cache invalidation removes or updates cached data when the original data changes.
+- TTL and cache invalidation are different mechanisms.
+- Redis and the database do not automatically stay synchronized. The application must handle consistency.
