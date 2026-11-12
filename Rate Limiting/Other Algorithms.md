@@ -87,6 +87,7 @@ Because the requests fall into two different fixed windows.
 ---
 
 # 2. Sliding Window Log
+![Uploading image.png…]()
 
 ## What is Sliding Window Log?
 
