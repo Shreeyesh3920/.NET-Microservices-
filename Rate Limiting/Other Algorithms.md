@@ -3,6 +3,7 @@
 # Rate Limiting Algorithms – Detailed Notes
 
 # 1. Fixed Window Counter
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/201faa23-bac5-4183-b8fe-4b6ad015f669" />
 
 ## What is Fixed Window?
 
@@ -184,6 +185,7 @@ Therefore:
 ---
 
 # 3. Leaky Bucket
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/bfb2db12-a1c3-4067-8294-34ad674b96f2" />
 
 ## What is Leaky Bucket?
 
