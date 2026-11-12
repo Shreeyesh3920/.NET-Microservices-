@@ -87,7 +87,7 @@ Because the requests fall into two different fixed windows.
 ---
 
 # 2. Sliding Window Log
-![Uploading image.png…]()
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/cd50292c-ecb1-4377-bda7-188bf1a053bd" />
 
 ## What is Sliding Window Log?
 
