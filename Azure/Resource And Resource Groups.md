@@ -29,36 +29,11 @@ Think of a resource as an individual building block of your application.
 ## **2. What is a Resource Group?**
 
 A **Resource Group is a logical container that holds related Azure resources.**
+<img width="972" height="523" alt="image" src="https://github.com/user-attachments/assets/9714be4a-8ba6-483e-b225-a6bedefc5954" />
 
 Imagine you're building your e-commerce application. You might create:
 
-**ECommerce-RG**
-
-Resource Group
-
-**ProductService-App**
-
-App Service · Resource
-
-**OrderService-App**
-
-App Service · Resource
-
-**UserService-App**
-
-App Service · Resource
-
-**ECommerce-DB**
-
-Database · Resource
-
-**ECommerce-Redis**
-
-Redis Cache · Resource
-
-**ECommerce-KeyVault**
-
-Key Vault · Resource
+<img width="988" height="487" alt="image" src="https://github.com/user-attachments/assets/f237a7cb-a5d7-4b89-a5f9-6556aef357fe" />
 
 Here:
 
@@ -73,6 +48,8 @@ Three important reasons:
 1. **Organization:** Keep resources belonging to your e-commerce application together.
 2. **Management:** View, manage, and monitor related resources from one place.
 3. **Deletion:** If you delete a Resource Group, Azure deletes the resources inside it too. Be careful!
+
+<img width="997" height="583" alt="image" src="https://github.com/user-attachments/assets/02364d55-1d3a-4315-b6b0-d634cb44ae7a" />
 
 **Remember this:**
 
