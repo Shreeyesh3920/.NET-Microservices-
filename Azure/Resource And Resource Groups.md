@@ -74,38 +74,9 @@ Three important reasons:
 2. **Management:** View, manage, and monitor related resources from one place.
 3. **Deletion:** If you delete a Resource Group, Azure deletes the resources inside it too. Be careful!
 
-## **4. Understand the relationship**
-
-**Azure Subscription**
-
-Your Azure subscription
-
-**Resource Group**
-
-ECommerce-RG
-
-App Service
-
-Resource
-
-Database
-
-Resource
-
-Redis Cache
-
-Resource
-
-Key Vault
-
-Resource
-
 **Remember this:**
 
 - Subscription = Your Azure account's resource and billing boundary.
 - Resource Group = Container for organizing related resources.
 - Resource = An individual Azure service.
 
-**Your score: 3/3**
-
-Once you've got these two concepts clear, we'll move to **Regions and Availability Zones**, then continue with Azure App Service.
