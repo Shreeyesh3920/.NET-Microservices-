@@ -83,7 +83,7 @@ We select Linux because our Docker image uses the Linux-based .NET runtime image
 
 **Pricing Plan: Basic (B1)**
 
-We use Basic (B1) because the Free (F1) plan does not support this custom-container hosting scenario.
+We use Basic (B1) for our custom-container hosting setup.
 
 Click **Review + Create → Create**.
 
@@ -98,10 +98,10 @@ Example:
 ```text
 Registry: ShreeyeshContainerRegistry
 Repository: demowebapplication
-Tag: V1
+Tag: v1
 
 Full Image:
-shreeyeshcontainerregistry.azurecr.io/demowebapplication:V1
+shreeyeshcontainerregistry.azurecr.io/demowebapplication:v1
 ```
 
 Now we need to tell Azure App Service which Docker image it should run.
@@ -109,7 +109,7 @@ Now we need to tell Azure App Service which Docker image it should run.
 Execute:
 
 ```cmd
-az webapp config container set -g Demo-Resource-Group -n Demo-Service-Plan --container-image-name shreeyeshcontainerregistry.azurecr.io/demowebapplication:V1 --container-registry-url https://shreeyeshcontainerregistry.azurecr.io
+az webapp config container set -g Demo-Resource-Group -n Demo-Service-Plan --container-image-name shreeyeshcontainerregistry.azurecr.io/demowebapplication:v1 --container-registry-url https://shreeyeshcontainerregistry.azurecr.io
 ```
 
 This configures the Docker image in our App Service.
@@ -123,8 +123,10 @@ az webapp config show -g Demo-Resource-Group -n Demo-Service-Plan --query linuxF
 Expected output:
 
 ```text
-DOCKER|shreeyeshcontainerregistry.azurecr.io/demowebapplication:V1
+DOCKER|shreeyeshcontainerregistry.azurecr.io/demowebapplication:v1
 ```
+
+**Important:** The image tag must match the actual tag available in ACR. In our case, the tag is `v1` (lowercase).
 
 ---
 
@@ -252,6 +254,8 @@ Our application listens inside the container on port `8080`.
 
 App Service needs to forward incoming HTTP requests to that container port.
 
+**Important:** `WEBSITES_PORT` tells App Service which container port to route traffic to. It does not change the port on which the ASP.NET Core application listens. The application itself must be configured to listen on port `8080`.
+
 ---
 
 ## 7. Restart App Service
@@ -279,7 +283,7 @@ Docker Build
     |
     v
 Docker Image
-demowebapplication:V1
+demowebapplication:v1
     |
     v
 Docker Push
@@ -348,12 +352,14 @@ https://YOUR_APP_SERVICE_NAME.azurewebsites.net
 
 ## 10. Complete Deployment Commands
 
+Run these commands in Windows CMD after replacing the two placeholders with the actual values retrieved from Azure.
+
 ```cmd
 :: 1. Configure ACR Managed Identity authentication
 az webapp config set -g Demo-Resource-Group -n Demo-Service-Plan --generic-configurations acrUseManagedIdentityCreds=true
 
 :: 2. Configure Docker image
-az webapp config container set -g Demo-Resource-Group -n Demo-Service-Plan --container-image-name shreeyeshcontainerregistry.azurecr.io/demowebapplication:V1 --container-registry-url https://shreeyeshcontainerregistry.azurecr.io
+az webapp config container set -g Demo-Resource-Group -n Demo-Service-Plan --container-image-name shreeyeshcontainerregistry.azurecr.io/demowebapplication:v1 --container-registry-url https://shreeyeshcontainerregistry.azurecr.io
 
 :: 3. Assign AcrPull permission
 az role assignment create --assignee YOUR_MANAGED_IDENTITY_PRINCIPAL_ID --role AcrPull --scope YOUR_ACR_RESOURCE_ID
