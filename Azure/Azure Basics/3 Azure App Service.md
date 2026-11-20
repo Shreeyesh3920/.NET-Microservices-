@@ -395,3 +395,5 @@ az webapp restart -g Demo-Resource-Group -n Demo-Service-Plan
 - **WEBSITES_PORT** tells App Service which port to forward incoming requests to.
 
 **Remember:** We are not uploading our source code directly to App Service. We upload a Docker image to ACR, and App Service pulls that image and runs it as a container.
+
+<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/7d01acf2-adae-474c-aae6-42305ec2fafc" />
