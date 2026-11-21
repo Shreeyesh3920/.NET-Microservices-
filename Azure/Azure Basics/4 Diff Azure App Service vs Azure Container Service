@@ -1,12 +1,10 @@
-https://medium.com/@Nayonae/azure-app-service-vs-container-apps-which-one-does-your-service-need-and-why-c46eadab79fa
+# Azure App Service vs Azure Container Apps – Complete Explanation (Hinglish)
 
-Article ko ekdum step-by-step samajhte hain. Ek saath saare technical terms nahi ghusaunga.
+# Part 1: Container kya hota hai?
 
-## Part 1: Sabse pehle Container kya hota hai?
+Azure Container Apps samajhne se pehle Docker aur Container ka concept samajhna zaroori hai.
 
-Article Azure Container Apps samjhane se pehle Container explain karta hai. Kyunki Container Apps samajhne ke liye Docker aur Container ka concept clear hona zaroori hai.
-
-Tere paas ek .NET Web API project hai:
+Suppose humare paas ek .NET Web API project hai:
 
 - ProductService
 - Program.cs
@@ -15,440 +13,777 @@ Tere paas ek .NET Web API project hai:
 - appsettings.json
 - Required NuGet packages
 
-Ab normally jab tu application run karta hai, toh usko .NET Runtime aur required dependencies chahiye hoti hain.
+Jab hum application run karte hain, toh application ko .NET Runtime aur required dependencies ki zaroorat hoti hai.
 
-Problem kya hai?
+## Problem kya hai?
 
-Maan le tere laptop pe application perfectly chal rahi hai, lekin kisi doosre server pe deploy karne gaya toh:
+Maan lo application humare local machine par perfectly chal rahi hai, lekin jab hum usko kisi doosre server par deploy karte hain, toh problems aa sakti hain:
 
-- .NET Runtime ka version different hai.
+- Server par .NET Runtime ka different version hai.
 - Required dependencies missing hain.
 - Environment configuration different hai.
 
-Aur application error dene lagti hai.
+Is wajah se application local machine par chal sakti hai, lekin server par fail ho sakti hai.
 
-Docker isi problem ko solve karne mein help karta hai.
+**Docker isi problem ko solve karne mein help karta hai.**
 
 ## 1. Docker Image kya hoti hai?
 
-Tu apne application code aur uski required dependencies ko package karta hai.
+Hum apne application code aur uski required dependencies ko ek package mein convert kar sakte hain.
 
-Is package ko Docker Image kehte hain.
-
-For example:
-
-**ProductService Docker Image**
-
-**ProductService.dll**
-
-**.NET Runtime**
-
-**Required Dependencies**
-
-**Application Configuration**
-
-Illustrative contents of a Docker image. Secrets and environment-specific configuration should generally be supplied separately.
-
-Ab ye image ek packaged application hai.
-
-## **2. Docker Container kya hota hai?**
-
-Image ko run karoge toh Container create hoga.
-
-Yaad rakh:
-
-- Docker Image = Packaged application.
-- Docker Container = Us image ka running instance.
+Is package ko **Docker Image** kehte hain.
 
 Example:
 
+```text
+ProductService Docker Image
+│
+├── ProductService.dll
+├── .NET Runtime
+├── Required Dependencies
+└── Application Configuration
 ```
+
+Docker Image ek packaged application hoti hai jisme application ko run karne ke liye required components included hote hain.
+
+## 2. Docker Container kya hota hai?
+
+Docker Image sirf ek packaged application hai. Jab hum us image ko run karte hain, toh ek running instance create hota hai.
+
+Us running instance ko **Container** kehte hain.
+
+Remember:
+
+- Docker Image = Packaged application.
+- Docker Container = Image ka running instance.
+
+Commands:
+
+```bash
+# Docker Image build karna
 docker build -t product-service:v1 .
-```
 
-Ye image banayega.
-
-```
+# Docker Image se Container run karna
 docker run product-service:v1
 ```
 
-Ye image se container run karega.
-
-**Ek image se multiple containers bhi run kar sakte ho.**
-
-For example:
-
-**ProductService Image**
-
-**Container 1**
-
-**Container 2**
-
-**Container 3**
-
-Same image se three running instances.
-
-Ye concept aage replicas samajhne mein kaam aayega.
-
-Article ke mutabik, containers lightweight hote hain kyunki ye complete operating system ko VM ki tarah emulate nahi karte. Ye host operating system ka kernel share karte hain, lekin processes aur environment isolated rakhte hain.&#x20;
-
-Pasted text(20261121-105359).txt
-
-
-
-# **Part 2: Azure Container Apps kya hai?**
-
-Ab Docker aur Container samajh aa gaya.
-
-Maan le tere paas ye microservices hain:
-
-**Your E-Commerce Project**
-
-**ProductService**
-
-.NET + MySQL
-
-**OrderService**
-
-.NET + MongoDB
-
-**UserService**
-
-.NET + PostgreSQL
-
-**API Gateway**
-
-Ocelot
-
-Tu in sabki Docker images bana sakta hai.
-
-Ab in images ko Azure pe run karna hai.
-
-Toh Azure Container Apps ka kaam hai:
-
-**Teri Docker images ko Azure infrastructure par run karna aur unke containers ko manage karna.**
-
-Azure khud underlying infrastructure aur Kubernetes-based orchestration manage karta hai. Tujhe manually Kubernetes cluster manage karne ki zaroorat nahi.
-
-## **3. Container Apps Environment kya hai?**
-
-Article mein ek important line hai:
-
-Every Container App is tied to a Container Apps Environment.
-
-Iska matlab samajh.
-
-Tu Azure mein ek Container Apps Environment create karta hai.
-
-Uske andar multiple Container Apps create kar sakta hai.
-
-**ECommerce-Environment**
-
-Container Apps Environment
-
-**Product App**
-
-Separate Container App
-
-**Order App**
-
-Separate Container App
-
-**User App**
-
-Separate Container App
-
-**Gateway App**
-
-Separate Container App
-
-Matlab:
-
-- One Environment.
-- Four Container Apps.
-- Har Container App apni Docker image run karega.
-
-Ye apps same Environment mein networking ke through ek doosre se communicate kar sakte hain, provided networking aur ingress configuration sahi ho.
-
-Aur ek important baat: **Har Container App independently scale ho sakta hai.**&#x20;
-
-Pasted text(20261121-105359).txt
-
-
-
-# **Part 3: Replicas aur Revisions – sabse important concepts**
-
-Article mein ye dono terms hain. Inko confuse mat karna.
-
-## **4. Replica kya hota hai?**
-
-Maan le tera OrderService Container App hai.
-
-Abhi woh ek instance pe run ho raha hai.
-
-Lekin suddenly bahut saare users orders place karne lage.
-
-Ek instance pe load badh gaya.
-
-Toh Azure additional instances start kar sakta hai.
-
-In additional instances ko **Replicas** bolte hain.
-
-**OrderService Container App**
-
-**Same Docker Image: order-service:v1**
-
-**Replica 1**
-
-Running instance
-
-**Replica 2**
-
-Running instance
-
-**Replica 3**
-
-Running instance
-
-Three replicas of the same OrderService application.
-
-Notice kar:
-
-- Ye teen alag microservices nahi hain.
-- Ye same OrderService ke three running instances hain.
-- Incoming traffic in instances ke beech distribute ho sakta hai.
-
-Isko horizontal scaling kehte hain.
-
-## **5. Revision kya hota hai?**
-
-Ab maan le tune OrderService mein kuch code changes kiye.
-
-Pehle version tha:
-
-`order-service:v1`
-
-Ab tune naye features add kiye aur image banayi:
-
-`order-service:v2`
-
-Jab tu updated image deploy karega, Azure Container Apps ek new Revision create kar sakta hai.
-
-Revision ka matlab hai application ka ek specific deployed version/configuration.
+### Ek image se multiple containers bhi create kar sakte hain.
 
 Example:
 
-**OrderService Container App**
-
-**Revision 1**
-
-Old version
-
-`order-service:v1`
-
-Replica 1 · Replica 2
-
-**Revision 2**
-
-New version
-
-`order-service:v2`
-
-Replica 1 · Replica 2 · Replica 3
-
-Dono revisions ko simultaneously run karna possible hai.
-
-For example, traffic splitting:
-
-- 10% traffic → Revision 1
-- 90% traffic → Revision 2
-
-Isse tu new version test kar sakta hai, bina immediately saara traffic new version pe shift kiye.
-
-**Difference yaad rakh:**
-
-| Term          | Meaning                                                |
-| ------------- | ------------------------------------------------------ |
-| Container App | Your deployed application                              |
-| Replica       | Same version/application ka running instance           |
-| Revision      | Application ka specific deployed version/configuration |
-
-Ye hierarchy article mein bhi explain ki gayi hai.&#x20;
-
-Pasted text(20261121-105359).txt
-
-
-
-# **Part 4: Ab Azure App Service kya karta hai?**
-
-Ab doosra part.
-
-Article ke according, Azure App Service ek fully managed PaaS platform hai jahan tu web applications aur REST APIs host kar sakta hai.
-
-Matlab Azure infrastructure manage karega aur tu apne application ki deployment aur configuration handle karega.&#x20;
-
-Pasted text(20261121-105359).txt
-
-
-
-Tere paas ek .NET Web API hai.
-
-Tu Azure Portal mein Web App create karta hai.
-
-Wahan do deployment options samajh:
-
-**Azure App Service – Deployment options**
-
-**Option 1: Code**
-
-Direct application deployment
-
-Tu published .NET application files deploy kar sakta hai.
-
-**Option 2: Container**
-
-Docker image deployment
-
-Tu apni custom Docker image deploy kar sakta hai.
-
-Important: App Service ka matlab ye nahi ki Docker use nahi kar sakte. Docker image bhi deploy kar sakte ho.
-
-## **6. App Service Plan kya karta hai?**
-
-Ye concept already discuss kiya tha, lekin article ke context mein samajh.
-
-App Service Plan underlying compute capacity provide karta hai.
-
-Uske andar multiple Web Apps ho sakte hain.
-
-Example:
-
+```text
+              ProductService Image
+                       |
+          ┌────────────┼────────────┐
+          |            |            |
+          v            v            v
+      Container 1  Container 2  Container 3
 ```
-App Service Plan
+
+Teeno containers same Docker Image se create hue hain aur same application run kar rahe hain.
+
+Ye concept aage Azure Container Apps mein Replicas samajhne ke kaam aayega.
+
+## 3. Container internally kaise work karta hai?
+
+Container ek complete Virtual Machine nahi hota.
+
+Virtual Machine apna operating system aur kernel run kar sakti hai, jabki containers host operating system ka kernel share karte hain.
+
+Containers processes, filesystem aur networking ko isolate karte hain.
+
+Is wajah se containers comparatively lightweight aur fast hote hain.
+
+```text
+        Container 1          Container 2
+        Application A        Application B
+             |                    |
+             └─────────┬──────────┘
+                       |
+                  Docker Engine
+                       |
+                 Host OS Kernel
+                       |
+                    Hardware
+```
+
+**Important:** Container ek isolated application process hota hai, complete operating system nahi.
+
+---
+
+# Part 2: Azure Container Apps kya hai?
+
+Ab Docker aur Container ka concept clear ho gaya.
+
+Maan lo humare paas ek E-Commerce Microservices Project hai:
+
+```text
+E-Commerce Project
 │
-├── ProductService Web App
-├── OrderService Web App
-└── UserService Web App
+├── ProductService
+│   └── .NET Web API + MySQL
+│
+├── OrderService
+│   └── .NET Web API + MongoDB
+│
+├── UserService
+│   └── .NET Web API + PostgreSQL
+│
+├── Redis
+├── RabbitMQ
+└── Ocelot API Gateway
 ```
 
-App Service Plan ke resources aur instances ko Web Apps share kar sakte hain.
+Hum in microservices ki separate Docker Images bana sakte hain.
 
-Article mein App Service ke underlying worker VMs aur Linux/Windows hosting ka explanation diya gaya hai. Linux code-based hosting mein Microsoft-maintained runtime container images use ho sakti hain; ye tere custom Docker image deployment se alag hai.&#x20;
+Ab in Docker Images ko Azure par run karna hai.
 
-Pasted text(20261121-105359).txt
+Yahan **Azure Container Apps** ka use hota hai.
 
+Azure Container Apps ek managed container hosting platform hai jahan hum apni Docker Images deploy karke containers run kar sakte hain.
 
+Azure underlying infrastructure aur Kubernetes-based orchestration manage karta hai.
 
-# **Part 5: Ab dono ka actual difference samajh**
+Humein manually Kubernetes Cluster, Control Plane aur Worker Nodes manage karne ki zaroorat nahi hoti.
 
-Bhai, ab tak jo concepts padhe, unko combine karte hain.
+## 4. Container Apps Environment kya hai?
 
-**Azure App Service**
-
-**App Service Plan**
-
-**Product Web App**
-
-.NET code or custom Docker image
-
-**Order Web App**
-
-.NET code or custom Docker image
-
-**User Web App**
-
-.NET code or custom Docker image
-
-**Azure Container Apps**
+Azure Container Apps mein ek important concept hai:
 
 **Container Apps Environment**
 
-**Product Container App** → Replicas\
-**Order Container App** → Replicas\
-**User Container App** → Replicas
+Jab hum Azure mein Container Apps deploy karte hain, toh unhe ek Container Apps Environment ke saath associate karna hota hai.
 
-| Feature              | App Service                                                                  | Container Apps                      |
-| -------------------- | ---------------------------------------------------------------------------- | ----------------------------------- |
-| Deployment           | Code or Docker image                                                         | Container image                     |
-| Multiple APIs        | Multiple Web Apps                                                            | Multiple Container Apps             |
-| Scaling              | Plan-level compute scaling; per-app scaling options exist on supported tiers | Independent replica scaling per app |
-| Scale to zero        | No standard scale-to-zero model                                              | Yes, when configured                |
-| Revisions            | Deployment slots                                                             | Revisions                           |
-| Event-driven scaling | Not its main strength                                                        | Supports KEDA-based scaling         |
-| Kubernetes           | Hidden from you                                                              | Used underneath, hidden from you    |
+Ek Environment ke andar multiple Container Apps create kar sakte hain.
 
-## **7. Tere project ke liye kaunsa?**
+Example:
 
-Maan le tu ek simple .NET MVC application bana raha hai, jisme normal controllers, views aur database hai.
+```text
+           ECommerce-Environment
+          (Container Apps Environment)
+                       |
+          ┌────────────┼────────────┐
+          |            |            |
+          v            v            v
+     Product App   Order App    User App
+          |            |            |
+     Product       Order         User
+     Image         Image         Image
+```
 
-**App Service** is a straightforward choice.
+Yahan:
 
-Lekin tere e-commerce project mein:
+- One Container Apps Environment.
+- Three separate Container Apps.
+- Har Container App apni Docker Image run karega.
 
-- Multiple Dockerized microservices hain.
-- RabbitMQ hai.
-- Redis hai.
-- Services independently scale ho sakti hain.
-- Background workers bhi ho sakte hain.
+### Important points
 
-**Container Apps** is a natural option to explore.
+1. Ek Environment ke andar multiple Container Apps create kar sakte hain.
+2. Har Container App independently configure aur deploy ho sakta hai.
+3. Har Container App ke apne scaling rules aur replicas ho sakte hain.
+4. Same Environment ke Container Apps aapas mein networking ke through communicate kar sakte hain, provided networking aur ingress properly configured ho.
 
-AKS tab seekhenge jab tujhe directly Kubernetes cluster, Pods, Deployments, Services, Ingress aur cluster-level control samajhna ho.
+**Remember:**
 
-# **Ab ek baar check karte hain ki concepts samajh aaye ya nahi**
+Container Apps Environment = Shared environment.
 
-**4-question knowledge check**
+Container App = Individual deployed application.
 
-4/4 answered
+---
 
-**1. Tu ProductService:v1 Docker image se 3 running instances create karta hai. Inko kya bolenge?**
+# Part 3: Replicas and Scaling
 
-3 Revisions
+Azure Container Apps ka ek important feature hai independent scaling.
 
-3 Replicas
+Isko samajhne ke liye pehle Replica samajhte hain.
 
-3 Container Apps Environments
+## 5. Replica kya hota hai?
 
-**Correct**
+Maan lo humne apna OrderService Azure Container Apps par deploy kiya hai.
 
-Same application version ke multiple running instances = Replicas.
+Initially humara OrderService ek instance par run ho raha hai.
 
-**2. Tu OrderService:v1 se OrderService:v2 deploy karta hai. Naya deployed version kya kehlata hai?**
+Lekin suddenly E-Commerce application par bahut saare users orders place karne lagte hain.
 
-Replica
+Ab ek instance par load increase ho sakta hai.
 
-Resource Group
+Azure Container Apps additional instances start kar sakta hai.
 
-Revision
+In running instances ko **Replicas** kehte hain.
 
-**Correct**
+Example:
 
-A new deployed version/configuration is represented by a Revision.
+```text
+             OrderService Container App
+                         |
+                  Same Docker Image
+                  order-service:v1
+                         |
+             ┌───────────┼───────────┐
+             |           |           |
+             v           v           v
+         Replica 1   Replica 2   Replica 3
+```
 
-**3. Tu ek Container Apps Environment create karta hai. Uske andar kitne Container Apps bana sakta hai?**
+Notice:
 
-Normally only one
+- Ye three different microservices nahi hain.
+- Ye same OrderService application ke three running instances hain.
+- Incoming requests in instances ke beech distribute ho sakte hain.
 
-Multiple
+Is process ko Horizontal Scaling kehte hain.
 
-Exactly three
+### Horizontal Scaling kya hai?
 
-**Correct**
+Horizontal Scaling ka matlab hai application ke additional instances create karna.
 
-One Environment can contain multiple independently managed Container Apps.
+Example:
 
-**4. Azure App Service mein Docker image deploy kar sakte hain?**
+```text
+Initially:
 
-Yes
+OrderService
+    |
+  Replica 1
 
-No, only Container Apps supports Docker
 
-**Correct**
+After Scaling:
 
-App Service supports both code deployment and custom container deployment.
+OrderService
+    |
+    ├── Replica 1
+    ├── Replica 2
+    ├── Replica 3
+    └── Replica 4
+```
 
-**Your score: 4/4**
+Azure Container Apps mein hum minimum aur maximum replica limits configure kar sakte hain.
 
-Try again
+Example:
 
-**Meri advice:** Abhi AKS pe mat jump kar. Pehle Container, Image, Container App, Environment, Replica aur Revision ye six concepts properly clear kar. Inka foundation strong ho gaya toh Kubernetes samajhna kaafi easier ho jayega.
+```text
+Minimum Replicas = 1
+Maximum Replicas = 5
+```
+
+Traffic increase hone par replicas increase ho sakte hain, configured maximum limit tak.
+
+## 6. Automatic Scaling kaise work karta hai?
+
+Azure Container Apps mein hum scaling rules configure kar sakte hain.
+
+Example:
+
+Suppose humne OrderService ke liye HTTP scaling rule configure kiya hai.
+
+```text
+Minimum Replicas = 1
+Maximum Replicas = 5
+
+HTTP Concurrent Requests Threshold = 50
+```
+
+Jab incoming concurrent requests configured threshold ke according increase hoti hain, Azure additional replicas start kar sakta hai.
+
+Other supported scaling triggers:
+
+- HTTP Requests
+- RabbitMQ Messages
+- Azure Service Bus Messages
+- CPU and Memory (supported scaling configurations ke through)
+- Other KEDA-supported event sources
+
+Iska benefit ye hai ki har microservice ko uski actual requirement ke according scale kar sakte hain.
+
+## 7. Scale to Zero kya hota hai?
+
+Ye Azure Container Apps ka ek useful feature hai.
+
+Maan lo humare paas Notification Service hai.
+
+Notification Service continuously requests receive nahi karta. Kabhi-kabhi hi messages process karta hai.
+
+Aise case mein hum minimum replicas ko zero configure kar sakte hain.
+
+```text
+Minimum Replicas = 0
+Maximum Replicas = 5
+```
+
+Jab koi work nahi hota, application zero replicas tak scale down ho sakti hai.
+
+Jab configured event trigger hota hai, Azure replicas dobara start kar sakta hai.
+
+Example:
+
+```text
+       No Incoming Messages
+                 |
+                 v
+       Notification Service
+                 |
+            0 Replicas
+                 |
+                 |
+       New Message Arrives
+                 |
+                 v
+        Azure Starts Replicas
+                 |
+          ┌──────┴──────┐
+          |             |
+          v             v
+       Replica 1     Replica 2
+```
+
+**Important:**
+
+Scale to Zero ke liye appropriate scaling rules aur configuration required hain.
+
+Zero se start hone par Cold Start delay bhi ho sakta hai.
+
+---
+
+# Part 4: Revisions
+
+## 8. Revision kya hota hai?
+
+Replica aur Revision ko confuse nahi karna.
+
+Maan lo humne OrderService deploy kiya hai.
+
+Initially humare paas version 1 hai:
+
+```text
+order-service:v1
+```
+
+Ab humne application mein kuch changes kiye:
+
+- New API endpoint add kiya.
+- Business logic update ki.
+- Bug fix kiya.
+
+Ab humne updated Docker Image build ki:
+
+```text
+order-service:v2
+```
+
+Jab hum updated version deploy karte hain, Azure Container Apps ek new Revision create kar sakta hai.
+
+**Revision ka matlab hai Container App ka ek specific deployed version aur configuration.**
+
+Example:
+
+```text
+             OrderService Container App
+                         |
+              ┌──────────┴──────────┐
+              |                     |
+              v                     v
+         Revision 1             Revision 2
+         (Old Version)          (New Version)
+              |                     |
+        order-service:v1       order-service:v2
+              |                     |
+         ┌────┴────┐           ┌────┴────┐
+         |         |           |         |
+         v         v           v         v
+      Replica 1 Replica 2   Replica 1 Replica 2
+```
+
+Dono revisions ko simultaneously run karna possible hai.
+
+## 9. Traffic Splitting kya hota hai?
+
+Azure Container Apps mein revisions ke beech traffic distribute kar sakte hain.
+
+Example:
+
+Maan lo humne OrderService ka new version deploy kiya hai.
+
+Lekin hum immediately 100% traffic new version ko nahi dena chahte.
+
+Hum traffic splitting configure kar sakte hain:
+
+```text
+Revision 1 (Old Version) = 10% Traffic
+
+Revision 2 (New Version) = 90% Traffic
+```
+
+Iska benefit:
+
+- New version ko gradually test kar sakte hain.
+- Old version ko available rakh sakte hain.
+- Problems hone par traffic old version par shift kar sakte hain.
+
+**Remember:**
+
+| Concept | Meaning |
+|---|---|
+| Container App | Deployed application |
+| Replica | Same version ka running instance |
+| Revision | Application ka specific deployed version/configuration |
+
+---
+
+# Part 5: Azure App Service kya hai?
+
+Ab Azure Container Apps samajh aa gaya.
+
+Ab Azure App Service dekhte hain.
+
+Azure App Service ek fully managed PaaS platform hai jahan hum:
+
+- Web Applications
+- REST APIs
+- Mobile Backends
+
+host kar sakte hain.
+
+Azure underlying infrastructure aur hosting platform manage karta hai.
+
+Humein manually server, operating system aur web hosting infrastructure manage karne ki zaroorat nahi hoti.
+
+## 10. Azure App Service mein application deploy kaise karte hain?
+
+Azure App Service mein generally do deployment options samajhne chahiye.
+
+### Option 1: Code Deployment
+
+Maan lo humare paas ek ASP.NET Core Web API hai.
+
+Hum application publish karke uski files Azure App Service par deploy kar sakte hain.
+
+```text
+.NET Web API Project
+        |
+        v
+   dotnet publish
+        |
+        v
+ Published Files
+        |
+        v
+ Azure App Service
+        |
+        v
+ Running Web API
+```
+
+Is approach mein apni custom Docker Image banana compulsory nahi hai.
+
+Azure selected runtime stack ke according application host karta hai.
+
+### Option 2: Container Deployment
+
+Azure App Service custom Docker Image deployment bhi support karta hai.
+
+Example:
+
+```text
+.NET Web API Project
+        |
+        v
+   Docker Build
+        |
+        v
+ ProductService Image
+        |
+        v
+ Azure Container Registry
+        |
+        v
+ Azure App Service
+        |
+        v
+ Running Container
+```
+
+Matlab Azure App Service mein bhi Docker Image deploy kar sakte hain.
+
+**Important:**
+
+App Service sirf non-Docker applications ke liye nahi hai. Ye code deployment aur custom container deployment dono support karta hai.
+
+## 11. App Service Plan kya hota hai?
+
+App Service Plan underlying compute resources provide karta hai jahan Web Apps run hoti hain.
+
+Example:
+
+```text
+               App Service Plan (B1)
+                        |
+          ┌─────────────┼─────────────┐
+          |             |             |
+          v             v             v
+    ProductService  OrderService  UserService
+      Web App         Web App      Web App
+```
+
+Yahan:
+
+- One App Service Plan.
+- Three separate Web Apps.
+- Teeno Web Apps independently deploy aur configure ho sakti hain.
+- Teeno same App Service Plan ki compute capacity share kar sakti hain.
+
+### Important distinction
+
+App Service Plan aur App Service same cheez nahi hain.
+
+**App Service Plan:**
+
+Compute capacity aur hosting resources provide karta hai.
+
+**App Service / Web App:**
+
+Individual application hoti hai jo App Service Plan par host hoti hai.
+
+### App Service ke andar multiple APIs host kar sakte hain?
+
+Technically, yes.
+
+Ek Web App ke andar multiple endpoints ya APIs ek hi ASP.NET Core application ka part ho sakte hain.
+
+Lekin agar ProductService, OrderService aur UserService ko independently deploy aur manage karna hai, toh normally separate Web Apps create karenge.
+
+---
+
+# Part 6: Azure App Service vs Azure Container Apps
+
+Ab dono concepts ko compare karte hain.
+
+## 12. Architecture Comparison
+
+### Azure App Service
+
+```text
+             App Service Plan
+                    |
+       ┌────────────┼────────────┐
+       |            |            |
+       v            v            v
+   Product       Order         User
+   Web App       Web App       Web App
+       |            |            |
+       v            v            v
+   .NET API      .NET API      .NET API
+```
+
+Teeno applications same App Service Plan ki compute capacity share kar sakti hain.
+
+### Azure Container Apps
+
+```text
+          Container Apps Environment
+                       |
+          ┌────────────┼────────────┐
+          |            |            |
+          v            v            v
+     Product App   Order App    User App
+          |            |            |
+          v            v            v
+       Replicas     Replicas     Replicas
+```
+
+Har Container App ki independent replica scaling configuration ho sakti hai.
+
+## 13. Main Differences
+
+| Feature | Azure App Service | Azure Container Apps |
+|---|---|---|
+| Main Purpose | Web application hosting | Container application hosting |
+| Deployment | .NET Code or Docker Image | Docker/OCI Image |
+| Multiple APIs | Multiple Web Apps | Multiple Container Apps |
+| Hosting Structure | App Service Plan → Web Apps | Environment → Container Apps |
+| Scaling | Plan-level compute scaling; supported tiers par per-app scaling options | Independent replica scaling |
+| Scale to Zero | Standard scale-to-zero model nahi hai | Supported |
+| Revisions | Deployment Slots | Revisions |
+| Traffic Splitting | Deployment Slots ke through supported workflows | Revision traffic splitting |
+| Event-driven Scaling | Main strength nahi hai | KEDA-based event-driven scaling |
+| Kubernetes Management | No | No, Kubernetes infrastructure Azure manage karta hai |
+
+---
+
+# Part 7: Real E-Commerce Project Example
+
+Ab apne E-Commerce Microservices Project ke basis par samajhte hain.
+
+Humare paas:
+
+```text
+E-Commerce Project
+│
+├── ProductService
+│   └── .NET Web API + MySQL
+│
+├── OrderService
+│   └── .NET Web API + MongoDB
+│
+├── UserService
+│   └── .NET Web API + PostgreSQL
+│
+├── Ocelot API Gateway
+├── Redis
+└── RabbitMQ
+```
+
+## 14. Agar Azure App Service use karein
+
+Hum ek App Service Plan create karenge.
+
+Uske andar separate Web Apps create karenge:
+
+```text
+App Service Plan
+│
+├── ProductService-WebApp
+├── OrderService-WebApp
+├── UserService-WebApp
+└── Gateway-WebApp
+```
+
+Har Web App mein separately application deploy karenge.
+
+Hum published .NET files ya custom Docker Images use kar sakte hain.
+
+## 15. Agar Azure Container Apps use karein
+
+Hum ek Container Apps Environment create karenge.
+
+Uske andar separate Container Apps create karenge:
+
+```text
+ECommerce-Environment
+│
+├── ProductService-ContainerApp
+│   └── ProductService Docker Image
+│
+├── OrderService-ContainerApp
+│   └── OrderService Docker Image
+│
+├── UserService-ContainerApp
+│   └── UserService Docker Image
+│
+└── Gateway-ContainerApp
+    └── Ocelot Docker Image
+```
+
+Har Container App apne according replicas increase ya decrease kar sakta hai.
+
+Example:
+
+```text
+ProductService = 1 Replica
+
+OrderService = 5 Replicas
+
+UserService = 1 Replica
+
+Gateway = 2 Replicas
+```
+
+Agar OrderService par traffic increase hota hai, toh hum uske replicas increase kar sakte hain bina ProductService aur UserService ke replica count ko change kiye.
+
+**Note:** Ye example application replicas ka hai. Redis, RabbitMQ aur databases ko bhi separately host karna padega, jaise managed Azure services ya suitable container hosting. Unhe automatically Container Apps Environment create karne se deploy nahi kiya jata.
+
+---
+
+# Part 8: Kab kaunsa use karna chahiye?
+
+## Azure App Service choose karo jab:
+
+- Normal ASP.NET Core Web API ya MVC application host karni ho.
+- Simple deployment chahiye.
+- Visual Studio ya GitHub se straightforward deployment karna ho.
+- Advanced container scaling ki requirement nahi ho.
+- Managed web application hosting chahiye.
+
+## Azure Container Apps choose karo jab:
+
+- Application already Dockerized ho.
+- Multiple microservices independently deploy karni ho.
+- Har microservice ko independently scale karna ho.
+- Background workers run karne ho.
+- RabbitMQ ya Azure Service Bus jaise event sources par scaling chahiye.
+- Scale-to-zero aur revision-based deployment chahiye.
+- Kubernetes cluster khud manage nahi karna ho.
+
+## Azure Kubernetes Service (AKS) kab?
+
+Jab humein Kubernetes par direct control chahiye.
+
+For example:
+
+- Kubernetes Deployments
+- Pods
+- Services
+- Ingress
+- ConfigMaps
+- Secrets
+- Cluster-level networking
+- Advanced orchestration
+
+AKS mein Azure control plane manage karta hai, lekin humein Kubernetes workloads aur worker node resources manage karne padte hain.
+
+---
+
+# Final Summary – Remember These Concepts
+
+| Term | Meaning |
+|---|---|
+| Docker Image | Application ka packaged version |
+| Docker Container | Docker Image ka running instance |
+| Container Apps Environment | Multiple Container Apps ka shared environment |
+| Container App | Individual deployed containerized application |
+| Replica | Same application version ka running instance |
+| Revision | Application ka specific deployed version/configuration |
+| App Service Plan | Web Apps ke liye shared compute capacity |
+| App Service | Individual hosted web application |
+| AKS | Azure managed Kubernetes service |
+
+## Most Important Difference
+
+**Azure App Service:**
+
+Managed web application hosting platform hai. Ismein hum direct .NET code ya custom Docker Image deploy kar sakte hain.
+
+**Azure Container Apps:**
+
+Managed container hosting platform hai. Ismein hum Docker Images deploy karte hain aur har Container App ko independently scale kar sakte hain.
+
+**AKS:**
+
+Managed Kubernetes service hai jahan humein Kubernetes workloads aur cluster-level configurations par direct control milta hai.
+
+---
+
+# Knowledge Check
+
+1. Docker Image aur Docker Container mein kya difference hai?
+2. Ek Docker Image se multiple Containers create kar sakte hain?
+3. Container Apps Environment kya hai?
+4. Ek Environment ke andar multiple Container Apps create kar sakte hain?
+5. Replica aur Revision mein kya difference hai?
+6. Scale to Zero kya hota hai?
+7. App Service Plan aur App Service mein kya difference hai?
+8. Kya Azure App Service Docker Image deploy support karta hai?
+9. Azure Container Apps mein independent scaling ka kya benefit hai?
+10. App Service, Container Apps aur AKS mein se kis situation mein kya choose karoge?
+
+**Learning Sequence:**
+
+1. Docker Images and Containers
+2. Azure Container Apps
+3. Container Apps Environment
+4. Replicas and Horizontal Scaling
+5. Scale to Zero
+6. Revisions and Traffic Splitting
+7. Azure App Service
+8. App Service vs Container Apps
+9. Introduction to AKS
