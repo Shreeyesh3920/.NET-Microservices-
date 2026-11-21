@@ -1,3 +1,4 @@
+https://medium.com/@Nayonae/azure-app-service-vs-container-apps-which-one-does-your-service-need-and-why-c46eadab79fa
 # Azure App Service vs Azure Container Apps – Complete Explanation (Hinglish)
 
 # Part 1: Container kya hota hai?
