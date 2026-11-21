@@ -2,7 +2,7 @@ https://medium.com/@Nayonae/azure-app-service-vs-container-apps-which-one-does-y
 
 Article ko ekdum step-by-step samajhte hain. Ek saath saare technical terms nahi ghusaunga.
 
-# **Part 1: Sabse pehle Container kya hota hai?**
+## Part 1: Sabse pehle Container kya hota hai?
 
 Article Azure Container Apps samjhane se pehle Container explain karta hai. Kyunki Container Apps samajhne ke liye Docker aur Container ka concept clear hona zaroori hai.
 
@@ -27,9 +27,9 @@ Maan le tere laptop pe application perfectly chal rahi hai, lekin kisi doosre se
 
 Aur application error dene lagti hai.
 
-**Docker isi problem ko solve karne mein help karta hai.**
+Docker isi problem ko solve karne mein help karta hai.
 
-## **1. Docker Image kya hoti hai?**
+## 1. Docker Image kya hoti hai?
 
 Tu apne application code aur uski required dependencies ko package karta hai.
 
